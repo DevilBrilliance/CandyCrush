@@ -163,13 +163,27 @@ namespace CandyCrush.Game
                 prefab = Resources.Load<WinPanel>(GameUiFactory.WinPanelResourcePath);
 
             if (prefab != null)
-                return Instantiate(prefab, parent);
+            {
+                var instance = Instantiate(prefab, parent);
+                EnsureSettleFx(instance);
+                return instance;
+            }
 
             Debug.LogWarning("[LevelDirector] WinPanel prefab missing, building at runtime. Run CandyCrush/Rebuild UI Prefabs.");
             return GameUiFactory.CreateWinPanel(
                 parent,
                 catalog != null ? catalog.GetSprite(TileType.Suitcase) : null,
                 null);
+        }
+
+        static void EnsureSettleFx(WinPanel win)
+        {
+            if (win == null) return;
+            var settle = win.GetComponent<SettleFx>();
+            if (settle == null) settle = win.gameObject.AddComponent<SettleFx>();
+            var great = win.transform.Find("Visual/GreatText") as RectTransform
+                        ?? win.transform.Find("GreatText") as RectTransform;
+            if (great != null) settle.BindGreat(great);
         }
 
         static int CountSuitcases(BoardModel model)

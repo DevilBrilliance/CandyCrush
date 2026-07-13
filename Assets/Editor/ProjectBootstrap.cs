@@ -79,6 +79,15 @@ namespace CandyCrush.EditorTools
             Debug.Log("[CandyCrush] Atlases rebuilt.");
         }
 
+        [MenuItem("CandyCrush/Fix Vfx Texture Compression")]
+        public static void FixVfxTextureCompression()
+        {
+            ConfigureAllSprites();
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[CandyCrush] Vfx textures set to Uncompressed for SpriteAtlas packing.");
+        }
+
         static void EnsureDirs()
         {
             Directory.CreateDirectory(AtlasDir);
@@ -97,7 +106,8 @@ namespace CandyCrush.EditorTools
                 $"{ArtRoot}/Sprites/UI",
                 $"{ArtRoot}/Sprites/Vfx",
                 $"{ArtRoot}/Sprites/Board",
-                $"{ArtRoot}/Backgrounds"
+                $"{ArtRoot}/Backgrounds",
+                "Assets/Resources/Vfx"
             };
 
             foreach (var folder in folders)
@@ -131,9 +141,13 @@ namespace CandyCrush.EditorTools
                         importer.filterMode = FilterMode.Bilinear;
                         changed = true;
                     }
-                    if (importer.textureCompression != TextureImporterCompression.Compressed)
+                    bool isVfx = folder.Contains("/Vfx") || folder.Contains("\\Vfx") || path.Contains("/Vfx/") || path.Contains("\\Vfx\\");
+                    var wantCompression = isVfx
+                        ? TextureImporterCompression.Uncompressed
+                        : TextureImporterCompression.Compressed;
+                    if (importer.textureCompression != wantCompression)
                     {
-                        importer.textureCompression = TextureImporterCompression.Compressed;
+                        importer.textureCompression = wantCompression;
                         changed = true;
                     }
 

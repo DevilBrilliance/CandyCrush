@@ -1,4 +1,5 @@
 using CandyCrush.Data;
+using CandyCrush.Vfx;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -144,6 +145,8 @@ namespace CandyCrush.View
 
             var winPanel = host.AddComponent<WinPanel>();
             winPanel.Bind(visual);
+            var settle = host.AddComponent<SettleFx>();
+            settle.BindGreat(greatRt);
             winPanel.Hide();
             return winPanel;
         }

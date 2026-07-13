@@ -51,8 +51,18 @@ namespace CandyCrush.Core
         public readonly List<TileType> ClearedTypes = new List<TileType>();
         public readonly List<GridPos> CollectedSuitcases = new List<GridPos>();
         public readonly List<(GridPos at, TileType booster)> SpawnedBoosters = new List<(GridPos, TileType)>();
+        /// <summary>本步激活的道具（表现层播 BoosterFx）。</summary>
+        public readonly List<ActivatedBooster> ActivatedBoosters = new List<ActivatedBooster>();
         public readonly List<FallMove> Falls = new List<FallMove>();
         public readonly List<SpawnMove> Spawns = new List<SpawnMove>();
         public bool HadWork;
+    }
+
+    public struct ActivatedBooster
+    {
+        public TileType Type;
+        public GridPos Origin;
+        public GridPos Target;
+        public bool HasTarget;
     }
 }

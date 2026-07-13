@@ -24,10 +24,12 @@ namespace CandyCrush.View
         BoardModel _model;
         TileView[,] _views;
         ClearBurstFx _clearFx;
+        BoosterFx _boosterFx;
 
         public BoardModel Model => _model;
         public TileSpriteCatalog Catalog => catalog;
         public LevelConfig Config => levelConfig;
+        public float CellSizeSafe() => cellSize > 0.01f ? cellSize : 0.95f;
 
         public void Initialize(LevelConfig config, TileSpriteCatalog sprites)
         {
@@ -47,6 +49,7 @@ namespace CandyCrush.View
             RebuildViews();
             RefreshBoardBg();
             _clearFx = ClearBurstFx.Ensure(transform, catalog);
+            _boosterFx = BoosterFx.Ensure(transform);
         }
 
         public void RebuildViews()
@@ -178,6 +181,13 @@ namespace CandyCrush.View
             else
                 _clearFx.Configure(catalog);
 
+            if (_boosterFx == null)
+                _boosterFx = BoosterFx.Ensure(transform);
+
+            // --- 道具轨迹（火箭/螺旋桨/炸弹）---
+            if (step.ActivatedBoosters.Count > 0)
+                yield return _boosterFx.PlayActivations(step.ActivatedBoosters, this);
+
             // --- 消除：立刻隐藏棋子，碎裂由 ClearBurstFx 承担 ---
             var toDestroy = new List<TileView>();
             for (int i = 0; i < step.Cleared.Count; i++)
@@ -242,6 +252,9 @@ namespace CandyCrush.View
                 if (_views[at.Row, at.Col] != null) continue;
                 _views[at.Row, at.Col] = CreateTileView(type, at.Row, at.Col, CellLocal(at.Row, at.Col));
             }
+
+            if (step.SpawnedBoosters.Count > 0 && _boosterFx != null)
+                StartCoroutine(_boosterFx.PlaySpawnPops(step.SpawnedBoosters, this));
 
             var spawning = new List<(TileView view, Vector3 from, Vector3 to)>();
             foreach (var spawn in step.Spawns)

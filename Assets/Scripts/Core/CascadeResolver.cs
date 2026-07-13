@@ -82,8 +82,8 @@ namespace CandyCrush.Core
 
             Round++;
             var clearSet = BoosterExecutor.GetClearCells(board, row, col, booster, partnerColor);
-            // 连锁激活：清除集中的其他道具也展开（一层）
-            ExpandNestedBoosters(board, clearSet, partnerColor);
+            RecordActivation(result, row, col, booster, clearSet);
+            ExpandNestedBoosters(board, clearSet, partnerColor, result);
 
             ApplyClear(board, clearSet, result);
             ApplyGravityAndSpawn(board, result);
@@ -105,16 +105,26 @@ namespace CandyCrush.Core
             return StepMatches(board);
         }
 
-        void ExpandNestedBoosters(BoardModel board, List<GridPos> clearSet, TileType partnerColor)
+        void ExpandNestedBoosters(BoardModel board, List<GridPos> clearSet, TileType partnerColor, CascadeStepResult result)
         {
             var seen = new HashSet<GridPos>(clearSet);
             var queue = new Queue<GridPos>(clearSet);
+            var recorded = new HashSet<GridPos>();
+            for (int i = 0; i < result.ActivatedBoosters.Count; i++)
+                recorded.Add(result.ActivatedBoosters[i].Origin);
+
             while (queue.Count > 0)
             {
                 var p = queue.Dequeue();
                 var t = board.Get(p.Row, p.Col);
                 if (!TileTypeUtil.IsBooster(t)) continue;
-                // 避免重复以自身为中心无限扩：仅首次遇到时扩展
+
+                if (recorded.Add(p))
+                {
+                    var preview = BoosterExecutor.GetClearCells(board, p.Row, p.Col, t, partnerColor);
+                    RecordActivation(result, p.Row, p.Col, t, preview);
+                }
+
                 var extra = BoosterExecutor.GetClearCells(board, p.Row, p.Col, t, partnerColor);
                 foreach (var e in extra)
                 {
@@ -125,6 +135,30 @@ namespace CandyCrush.Core
                     }
                 }
             }
+        }
+
+        static void RecordActivation(CascadeStepResult result, int row, int col, TileType booster, List<GridPos> clearSet)
+        {
+            var act = new ActivatedBooster
+            {
+                Type = booster,
+                Origin = new GridPos(row, col),
+                HasTarget = false
+            };
+
+            if (booster == TileType.Propeller && clearSet != null)
+            {
+                for (int i = 0; i < clearSet.Count; i++)
+                {
+                    var p = clearSet[i];
+                    if (p.Row == row && p.Col == col) continue;
+                    act.Target = p;
+                    act.HasTarget = true;
+                    break;
+                }
+            }
+
+            result.ActivatedBoosters.Add(act);
         }
 
         void ApplyClear(BoardModel board, List<GridPos> clearSet, CascadeStepResult result)
