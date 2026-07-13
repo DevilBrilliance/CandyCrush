@@ -110,6 +110,21 @@ namespace CandyCrush.View
             }
         }
 
+        /// <summary>立刻摘掉并销毁格子视图（收集飞行另建副本）。</summary>
+        public void ConsumeViews(IReadOnlyList<GridPos> cells)
+        {
+            if (cells == null || _views == null) return;
+            for (int i = 0; i < cells.Count; i++)
+            {
+                var p = cells[i];
+                if (!_model.InBounds(p.Row, p.Col)) continue;
+                var v = _views[p.Row, p.Col];
+                if (v == null) continue;
+                _views[p.Row, p.Col] = null;
+                DestroyTile(v);
+            }
+        }
+
         public TileView GetView(int row, int col) =>
             _model != null && _model.InBounds(row, col) ? _views[row, col] : null;
 

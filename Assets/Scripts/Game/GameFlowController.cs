@@ -117,12 +117,16 @@ namespace CandyCrush.Game
                 if (step.CollectedSuitcases.Count > 0)
                 {
                     EventBus.Publish(new ObjectiveChangedEvent(_objective.Remaining));
-                    if (goalHud != null)
+                    if (goalHud != null && boardView != null)
                     {
-                        goalHud.SetRemaining(_objective.Remaining);
-                        var rt = goalHud.transform as RectTransform;
-                        if (rt != null)
-                            yield return CandyCrush.Vfx.CollectFx.Punch(rt);
+                        // 格心立刻摘掉箱子视图，副本飞向 UI；连锁继续
+                        boardView.ConsumeViews(step.CollectedSuitcases);
+                        yield return CandyCrush.Vfx.CollectFx.FlySuitcases(
+                            step.CollectedSuitcases,
+                            boardView,
+                            goalHud,
+                            boardView.Catalog,
+                            _objective.Remaining);
                     }
                 }
 
