@@ -175,8 +175,10 @@ namespace CandyCrush.Vfx
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             main.maxParticles = 64;
             main.scalingMode = ParticleSystemScalingMode.Hierarchy;
-            // 速度由 EmitParams 指定
+            // 速度由 EmitParams 指定；duration 只能在未播放时设置
             main.startSpeed = 0f;
+            main.startLifetime = Duration;
+            main.duration = Duration + 0.1f;
 
             var emission = ps.emission;
             emission.enabled = false;
@@ -284,8 +286,7 @@ namespace CandyCrush.Vfx
         void Tune(ParticleSystem ps, float cellSize)
         {
             var main = ps.main;
-            main.startLifetime = Duration;
-            main.duration = Duration + 0.1f;
+            // duration 播放中不可改；寿命用 EmitParams.startLifetime
             main.startSpeed = 0f;
             main.gravityModifier = gravityModifier;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
