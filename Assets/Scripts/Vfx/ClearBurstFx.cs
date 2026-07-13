@@ -5,25 +5,41 @@ using UnityEngine;
 namespace CandyCrush.Vfx
 {
     /// <summary>
-    /// 消除碎块：格心 Burst 对应颜色 particle_die，炸开后受重力下落。
-    /// 伞形上抛后逐渐透明消失（尺寸不变）。
+    /// 消除碎块：格心沿伞形弧线分散发射对应颜色 particle_die。
+    /// 4~6 块随机从格心出生、抛射角度各不同，先上抛再下落；前 fadeDelay 实色，之后逐渐透明。
     /// </summary>
     public class ClearBurstFx : MonoBehaviour
     {
+        [Header("Timing")]
         [SerializeField] float duration = 1.5f;
         [SerializeField] float fadeDelay = 0.5f;
+
+        [Header("Burst")]
+        [SerializeField] int burstCountMin = 4;
+        [SerializeField] int burstCountMax = 6;
+        [Tooltip("伞形弧线总张角（度），碎块抛射方向分布在此弧上")]
+        [SerializeField] float arcSpan = 130f;
+        [Tooltip("每个碎块相对弧线槽位的角度抖动（度）")]
+        [SerializeField] float angleJitter = 14f;
+        [Tooltip("相对格子边长的初速（上抛要看得见）")]
+        [SerializeField] Vector2 speedMul = new Vector2(2.1f, 3.5f);
+        [Tooltip("Unity 重力倍率")]
+        [SerializeField] float gravityModifier = 0.55f;
+        [Tooltip("相对格子边长的碎块尺寸")]
+        [SerializeField] Vector2 sizeMul = new Vector2(0.2f, 0.32f);
+        [SerializeField] int sparkCount = 3;
 
         float Duration => duration > 0.01f ? duration : 1.5f;
         float FadeDelay => Mathf.Clamp(fadeDelay, 0f, Duration);
 
         /// <summary>棋子 10，碎块夹在棋子与雪花(200)之间。</summary>
         public const int ShardSortingOrder = 100;
-        const int BurstCount = 10;
 
         TileSpriteCatalog _catalog;
         readonly Dictionary<TileType, ParticleSystem> _systems = new Dictionary<TileType, ParticleSystem>();
         ParticleSystem _spark;
         static Material _mat;
+        readonly List<float> _angleSlots = new List<float>(8);
 
         public static ClearBurstFx Ensure(Transform parent, TileSpriteCatalog catalog)
         {
@@ -69,24 +85,74 @@ namespace CandyCrush.Vfx
                 if (ps != null)
                 {
                     Tune(ps, cellSize);
-                    ps.transform.position = worldPos;
-                    ps.Emit(BurstCount);
+                    EmitUmbrella(ps, worldPos, cellSize);
                 }
             }
 
             PlaySpark(worldPos, cellSize);
         }
 
+        /// <summary>
+        /// 格心出生，沿伞形弧线用不同角度上抛：数量 4~6 随机，方向各不相同。
+        /// </summary>
+        void EmitUmbrella(ParticleSystem ps, Vector3 center, float cellSize)
+        {
+            float s = Mathf.Max(0.45f, cellSize);
+            int min = Mathf.Max(1, Mathf.Min(burstCountMin, burstCountMax));
+            int max = Mathf.Max(min, burstCountMax);
+            int count = Random.Range(min, max + 1);
+
+            float half = Mathf.Max(20f, arcSpan) * 0.5f;
+            _angleSlots.Clear();
+            for (int i = 0; i < count; i++)
+            {
+                float slot = (i + 0.5f) / count;
+                float baseAngle = Mathf.Lerp(-half, half, slot);
+                _angleSlots.Add(baseAngle + Random.Range(-angleJitter, angleJitter));
+            }
+
+            // 打乱槽位，避免从左到右固定顺序
+            for (int i = _angleSlots.Count - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                (_angleSlots[i], _angleSlots[j]) = (_angleSlots[j], _angleSlots[i]);
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                float angleDeg = _angleSlots[i];
+                // 0°=正上，负左正右
+                Vector3 dir = Quaternion.Euler(0f, 0f, angleDeg) * Vector3.up;
+
+                float speed = s * Random.Range(speedMul.x, speedMul.y);
+                Vector3 vel = dir * speed + Vector3.up * (s * Random.Range(0.35f, 0.85f));
+
+                var ep = new ParticleSystem.EmitParams
+                {
+                    position = center,
+                    velocity = vel,
+                    startSize = s * Random.Range(sizeMul.x, sizeMul.y),
+                    startLifetime = Duration,
+                    startColor = Color.white,
+                    rotation = Random.Range(0f, 360f),
+                    applyShapeToPosition = false
+                };
+                ps.Emit(ep, 1);
+            }
+        }
+
         void PlaySpark(Vector3 worldPos, float cellSize)
         {
+            if (sparkCount <= 0) return;
             EnsureSpark();
             if (_spark == null) return;
             var main = _spark.main;
             float s = Mathf.Max(0.4f, cellSize);
-            main.startSize = new ParticleSystem.MinMaxCurve(s * 0.06f, s * 0.12f);
-            main.startSpeed = new ParticleSystem.MinMaxCurve(s * 1.2f, s * 2.2f);
+            main.startSize = new ParticleSystem.MinMaxCurve(s * 0.05f, s * 0.1f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(s * 0.6f, s * 1.2f);
+            main.gravityModifier = gravityModifier * 0.6f;
             _spark.transform.position = worldPos;
-            _spark.Emit(4);
+            _spark.Emit(sparkCount);
         }
 
         ParticleSystem GetOrCreate(TileType type)
@@ -105,34 +171,20 @@ namespace CandyCrush.Vfx
             var main = ps.main;
             main.playOnAwake = false;
             main.loop = false;
-            main.duration = Duration + 0.1f;
-            // 下落同时逐渐透明消失（不缩小）
-            main.startLifetime = Duration;
-            main.startSpeed = new ParticleSystem.MinMaxCurve(1.1f, 2.25f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.18f, 0.32f);
-            main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
             main.startColor = Color.white;
-            main.gravityModifier = 1.05f;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
-            main.maxParticles = 128;
+            main.maxParticles = 64;
             main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+            // 速度由 EmitParams 指定
+            main.startSpeed = 0f;
 
             var emission = ps.emission;
             emission.enabled = false;
             emission.rateOverTime = 0f;
 
-            // 伞形上抛：圆锥朝上散开，再被重力拉成下落弧线
+            // 关闭 Shape，避免把所有粒子挤回同一发射方向
             var shape = ps.shape;
-            shape.enabled = true;
-            shape.shapeType = ParticleSystemShapeType.Cone;
-            shape.angle = 58f;
-            shape.radius = 0.02f;
-            shape.radiusThickness = 1f;
-            shape.length = 0f;
-            shape.arc = 360f;
-            shape.rotation = new Vector3(-90f, 0f, 0f); // 默认 +Z → 改为朝 +Y
-            shape.position = Vector3.zero;
-            shape.scale = Vector3.one;
+            shape.enabled = false;
 
             var limit = ps.limitVelocityOverLifetime;
             limit.enabled = false;
@@ -140,13 +192,10 @@ namespace CandyCrush.Vfx
             var sizeOver = ps.sizeOverLifetime;
             sizeOver.enabled = false;
 
-            // 逐渐透明消失
-            ApplyFadeOverLifetime(ps);
-
             var rot = ps.rotationOverLifetime;
             rot.enabled = true;
             rot.separateAxes = false;
-            rot.z = new ParticleSystem.MinMaxCurve(-8f, 8f);
+            rot.z = new ParticleSystem.MinMaxCurve(-5f, 5f);
 
             var sheet = ps.textureSheetAnimation;
             sheet.enabled = true;
@@ -163,6 +212,7 @@ namespace CandyCrush.Vfx
             sheet.cycleCount = 1;
 
             ApplyShardSorting(go.GetComponent<ParticleSystemRenderer>());
+            Tune(ps, 0.95f);
 
             _systems[type] = ps;
             return ps;
@@ -181,14 +231,11 @@ namespace CandyCrush.Vfx
             var main = _spark.main;
             main.playOnAwake = false;
             main.loop = false;
-            main.duration = 0.35f;
-            main.startLifetime = new ParticleSystem.MinMaxCurve(0.2f, 0.35f);
-            main.startSpeed = 1.5f;
-            main.startSize = 0.1f;
+            main.duration = 0.4f;
+            main.startLifetime = 0.35f;
             main.startColor = Color.white;
-            main.gravityModifier = 0.8f;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
-            main.maxParticles = 64;
+            main.maxParticles = 32;
 
             var emission = _spark.emission;
             emission.enabled = false;
@@ -196,7 +243,7 @@ namespace CandyCrush.Vfx
             var shape = _spark.shape;
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Cone;
-            shape.angle = 50f;
+            shape.angle = 45f;
             shape.radius = 0.01f;
             shape.rotation = new Vector3(-90f, 0f, 0f);
 
@@ -237,18 +284,14 @@ namespace CandyCrush.Vfx
         void Tune(ParticleSystem ps, float cellSize)
         {
             var main = ps.main;
-            float s = Mathf.Max(0.45f, cellSize);
-            main.startSize = new ParticleSystem.MinMaxCurve(s * 0.22f, s * 0.38f);
-            // 下落速度约为原先一半
-            main.startSpeed = new ParticleSystem.MinMaxCurve(s * 1.6f, s * 2.8f);
-            main.gravityModifier = 1.4f;
             main.startLifetime = Duration;
             main.duration = Duration + 0.1f;
+            main.startSpeed = 0f;
+            main.gravityModifier = gravityModifier;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
 
             var shape = ps.shape;
-            shape.shapeType = ParticleSystemShapeType.Cone;
-            shape.angle = 58f;
-            shape.rotation = new Vector3(-90f, 0f, 0f);
+            shape.enabled = false;
 
             var sizeOver = ps.sizeOverLifetime;
             sizeOver.enabled = false;
@@ -256,7 +299,6 @@ namespace CandyCrush.Vfx
             ApplyFadeOverLifetime(ps);
         }
 
-        /// <summary>前 fadeDelay 秒保持不透明，之后再逐渐透明到结束。</summary>
         void ApplyFadeOverLifetime(ParticleSystem ps)
         {
             var colorOver = ps.colorOverLifetime;
@@ -280,7 +322,6 @@ namespace CandyCrush.Vfx
         static Material SharedMat()
         {
             if (_mat != null) return _mat;
-            // 与 SpriteRenderer 同一套排序，避免粒子材质盖住雪花
             var shader = Shader.Find("Sprites/Default")
                          ?? Shader.Find("Particles/Standard Unlit");
             _mat = new Material(shader) { name = "ClearDieShardMat" };
