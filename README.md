@@ -1,45 +1,23 @@
-# Unity 三消 Demo — 工程说明
+# Unity 三消 Demo
 
-## 快速开始
+## 操作
 
-1. 用 Unity **2022.3.34f1c1** 打开本工程
-2. 菜单执行 **CandyCrush → Bootstrap Project**（首次必做：导入 Sprite、打包图集、生成场景）
-3. 打开 `Assets/Scenes/Gameplay.unity`，点击 Play
+1. 打开 `Assets/Scenes/Gameplay.unity`，竖屏 Game 视图（9:16）
+2. Play：点击选中棋子，再点相邻棋子交换
+3. 无效交换会回弹；有效则消除 → 下落补块 → 连锁
+4. 行李箱被消除波及或道具打到会收集；目标归零出 Great
 
-命令行等价：
+## 已实现（架构 P0 + 部分 P1）
 
-```bat
-"C:\Program Files\Unity\Hub\Editor\2022.3.34f1c1\Editor\Unity.exe" ^
-  -batchmode -quit -projectPath "%CD%" ^
-  -executeMethod CandyCrush.EditorTools.ProjectBootstrapCli.BootstrapCli ^
-  -logFile "%CD%\bootstrap.log"
-```
-
-## 资源与图集
-
-| 路径 | 说明 |
+| 模块 | 内容 |
 |------|------|
-| `Assets/Art/Sprites/Tiles` | 棋子 / 行李箱 / 道具 |
-| `Assets/Art/Sprites/UI` | HUD / 面板 / 按钮 |
-| `Assets/Art/Sprites/Vfx` | 消除碎屑粒子图 |
-| `Assets/Art/Backgrounds` | 街景背景（参考视频截帧） |
-| `Assets/Art/Atlases/Atlas_Tiles.spriteatlas` | 棋子图集 |
-| `Assets/Art/Atlases/Atlas_UI.spriteatlas` | UI 图集 |
-| `Assets/Art/Atlases/Atlas_Vfx.spriteatlas` | 特效图集 |
+| Core | MatchFinder / SwapValidator / ClearResolver / Gravity / Spawner / Cascade / Booster |
+| Game | InputController / GameFlowController / LevelDirector |
+| View | BoardView 交换/消除/下落动画、GoalHUD、WinPanel |
+| Vfx | AtmosphereFx 飘雪、CollectFx punch |
 
-棋子对应：红帽 `candy_1_1` / 黄铃 `candy_1_2` / 蓝枕 `candy_1_3` / 绿叶 `candy_1_4` / 行李箱 `tile_suitcase`。
+道具：4 连火箭、2×2 螺旋桨、L/T 炸弹（彩球默认关）
 
-## 场景结构（参考视频）
+## 菜单
 
-- 暗色街景背景 + 全屏飘雪（`AtmosphereFx`）
-- 9 列 × 8 行棋盘（`LevelConfig` 可改）
-- 顶栏 GoalHUD：行李箱图标 + 剩余数量
-- WinPanel：`Great` 结算（目标归零后显示）
-
-## 架构目录
-
-```
-Scripts/Data|Core|View|Vfx|Audio|Game|Common
-```
-
-本期已落地：数据层骨架、BoardView 镜像、LevelDirector、图集资源管线、Gameplay 场景。
+`CandyCrush → Bootstrap Project` 可重建图集与场景

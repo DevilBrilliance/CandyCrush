@@ -227,6 +227,7 @@ namespace CandyCrush.EditorTools
                 new TileSpriteCatalog.Entry { type = TileType.Bomb, sprite = Load($"{ArtRoot}/Sprites/Tiles/boost_candy_bomb.png") },
                 new TileSpriteCatalog.Entry { type = TileType.RocketH, sprite = Load($"{ArtRoot}/Sprites/Tiles/boost_candy_hv.png") },
                 new TileSpriteCatalog.Entry { type = TileType.RocketV, sprite = Load($"{ArtRoot}/Sprites/Tiles/boost_candy_hv.png") },
+                new TileSpriteCatalog.Entry { type = TileType.Propeller, sprite = Load($"{ArtRoot}/Sprites/Tiles/boost_candy_rainbow.png") },
                 new TileSpriteCatalog.Entry { type = TileType.ColorBall, sprite = Load($"{ArtRoot}/Sprites/Tiles/boost_candy_rainbow.png") },
             };
             catalog.boardCellSprite = Load($"{ArtRoot}/Sprites/Board/candy_bg_01.png");
@@ -396,6 +397,7 @@ namespace CandyCrush.EditorTools
 
             // LevelDirector
             var directorGo = new GameObject("LevelDirector");
+            var flow = directorGo.AddComponent<GameFlowController>();
             var director = directorGo.AddComponent<LevelDirector>();
             var dirSo = new SerializedObject(director);
             dirSo.FindProperty("levelConfig").objectReferenceValue = level;
@@ -405,21 +407,21 @@ namespace CandyCrush.EditorTools
             dirSo.FindProperty("winPanel").objectReferenceValue = winPanel;
             dirSo.FindProperty("atmosphereRoot").objectReferenceValue = boardRoot.transform;
             dirSo.FindProperty("background").objectReferenceValue = bgSr;
+            dirSo.FindProperty("flow").objectReferenceValue = flow;
+            dirSo.FindProperty("portraitOrthoSize").floatValue = 8.2f;
             dirSo.ApplyModifiedPropertiesWithoutUndo();
-
-            var portrait = directorGo.AddComponent<PortraitSetup>();
-            var portraitSo = new SerializedObject(portrait);
-            portraitSo.FindProperty("targetCamera").objectReferenceValue = cam;
-            portraitSo.FindProperty("background").objectReferenceValue = bgSr;
-            portraitSo.FindProperty("portraitOrthoSize").floatValue = 8.2f;
-            portraitSo.ApplyModifiedPropertiesWithoutUndo();
 
             var inputGo = new GameObject("InputController");
             var input = inputGo.AddComponent<InputController>();
             var inputSo = new SerializedObject(input);
             inputSo.FindProperty("boardView").objectReferenceValue = boardView;
+            inputSo.FindProperty("flow").objectReferenceValue = flow;
             inputSo.FindProperty("worldCamera").objectReferenceValue = cam;
             inputSo.ApplyModifiedPropertiesWithoutUndo();
+
+            dirSo = new SerializedObject(director);
+            dirSo.FindProperty("input").objectReferenceValue = input;
+            dirSo.ApplyModifiedPropertiesWithoutUndo();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             Debug.Log($"[CandyCrush] Scene saved: {ScenePath}");

@@ -556,6 +556,9 @@ MonoBehaviour:
   boardBg: {fileID: 129462495}
   cellSize: 0.95
   boardOrigin: {x: 0, y: 0}
+  swapDuration: 0.18
+  fallDuration: 0.22
+  clearDuration: 0.15
 --- !u!4 &840395388
 Transform:
   m_ObjectHideFlags: 0

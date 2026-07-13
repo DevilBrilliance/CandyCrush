@@ -1,11 +1,13 @@
-using System;
+using System.Collections;
+using System.Collections.Generic;
 using CandyCrush.Common;
+using CandyCrush.Core;
 using CandyCrush.Data;
 using UnityEngine;
 
 namespace CandyCrush.View
 {
-    /// <summary>棋盘表现层：根据 BoardModel 镜像生成 TileView。</summary>
+    /// <summary>棋盘表现：镜像 BoardModel，播放交换/消除/下落/生成。</summary>
     public class BoardView : MonoBehaviour
     {
         [SerializeField] LevelConfig levelConfig;
@@ -14,14 +16,17 @@ namespace CandyCrush.View
         [SerializeField] SpriteRenderer boardBg;
         [SerializeField] float cellSize = 0.95f;
         [SerializeField] Vector2 boardOrigin;
+        [SerializeField] float swapDuration = 0.18f;
+        [SerializeField] float fallDuration = 0.22f;
+        [SerializeField] float clearDuration = 0.15f;
 
         BoardModel _model;
         TileView[,] _views;
 
         public BoardModel Model => _model;
+        public TileSpriteCatalog Catalog => catalog;
         public float CellSize => cellSize;
-        public int Rows => _model?.Rows ?? levelConfig.rows;
-        public int Cols => _model?.Cols ?? levelConfig.cols;
+        public LevelConfig Config => levelConfig;
 
         public void Initialize(LevelConfig config, TileSpriteCatalog sprites)
         {
@@ -53,18 +58,207 @@ namespace CandyCrush.View
             {
                 var type = _model.Get(r, c);
                 if (type == TileType.Empty) continue;
-                var sprite = catalog.GetSprite(type);
-                if (sprite == null) continue;
-
-                var go = new GameObject($"Tile_{r}_{c}");
-                go.transform.SetParent(tileRoot, false);
-                go.transform.localPosition = GridUtil.CellToLocal(r, c, _model.Rows, _model.Cols, cellSize, boardOrigin);
-                var sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = sprite;
-                var view = go.AddComponent<TileView>();
-                view.Setup(type, sprite, r, c, cellSize);
-                _views[r, c] = view;
+                _views[r, c] = CreateTileView(type, r, c, CellLocal(r, c));
             }
+        }
+
+        public void SyncFromModel() => RebuildViews();
+
+        public TileView GetView(int row, int col) =>
+            _model != null && _model.InBounds(row, col) ? _views[row, col] : null;
+
+        public bool TryGetCell(Vector3 worldPos, out int row, out int col)
+        {
+            var local = transform.InverseTransformPoint(worldPos);
+            return GridUtil.TryWorldToCell(local, _model.Rows, _model.Cols, cellSize, boardOrigin, out row, out col);
+        }
+
+        public Vector3 CellLocal(int row, int col) =>
+            GridUtil.CellToLocal(row, col, _model.Rows, _model.Cols, cellSize, boardOrigin);
+
+        public IEnumerator AnimateSwap(int r0, int c0, int r1, int c1)
+        {
+            var a = _views[r0, c0];
+            var b = _views[r1, c1];
+            var p0 = CellLocal(r0, c0);
+            var p1 = CellLocal(r1, c1);
+            float dur = swapDuration > 0.01f ? swapDuration : 0.18f;
+
+            float t = 0f;
+            while (t < dur)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / dur);
+                u = u * u * (3f - 2f * u);
+                if (a != null) a.transform.localPosition = Vector3.Lerp(p0, p1, u);
+                if (b != null) b.transform.localPosition = Vector3.Lerp(p1, p0, u);
+                yield return null;
+            }
+
+            _views[r0, c0] = b;
+            _views[r1, c1] = a;
+            if (a != null) { a.transform.localPosition = p1; a.SetGridPos(r1, c1); }
+            if (b != null) { b.transform.localPosition = p0; b.SetGridPos(r0, c0); }
+        }
+
+        public IEnumerator AnimateSwapBack(int r0, int c0, int r1, int c1)
+        {
+            yield return AnimateSwap(r0, c0, r1, c1);
+        }
+
+        public IEnumerator PlayCascadeStep(CascadeStepResult step)
+        {
+            if (step == null || !step.HadWork) yield break;
+
+            // 场景里若未写入序列化字段，Unity 会把 float 读成 0，动画会瞬间结束
+            float clearDur = clearDuration > 0.01f ? clearDuration : 0.15f;
+            float fallDur = fallDuration > 0.01f ? fallDuration : 0.22f;
+
+            // --- 消除 ---
+            var fading = new List<(TileView view, float baseScale)>();
+            foreach (var p in step.Cleared)
+            {
+                var v = _views[p.Row, p.Col];
+                if (v == null) continue;
+                fading.Add((v, v.transform.localScale.x));
+                _views[p.Row, p.Col] = null;
+            }
+
+            float t = 0f;
+            while (t < clearDur)
+            {
+                t += Time.deltaTime;
+                float s = 1f - Mathf.Clamp01(t / clearDur);
+                foreach (var (view, baseScale) in fading)
+                {
+                    if (view == null) continue;
+                    view.transform.localScale = Vector3.one * (baseScale * s);
+                    var sr = view.GetComponent<SpriteRenderer>();
+                    if (sr != null)
+                    {
+                        var c = sr.color;
+                        c.a = s;
+                        sr.color = c;
+                    }
+                }
+                yield return null;
+            }
+
+            foreach (var (view, _) in fading)
+                if (view != null) DestroyImmediate(view.gameObject);
+
+            // --- 准备下落前的视图：按 Falls 的 From 建/移，生成物稍后补 ---
+            // 先清掉所有与最终盘面无关的残留引用，但保留可复用的下落块
+            var falling = new List<(TileView view, Vector3 from, Vector3 to)>();
+
+            var fallList = new List<FallMove>(step.Falls);
+            fallList.Sort((a, b) =>
+            {
+                int cmp = a.To.Col.CompareTo(b.To.Col);
+                return cmp != 0 ? cmp : b.To.Row.CompareTo(a.To.Row);
+            });
+
+            foreach (var move in fallList)
+            {
+                var v = _views[move.From.Row, move.From.Col];
+                if (v == null)
+                    v = CreateTileView(move.Type, move.From.Row, move.From.Col, CellLocal(move.From.Row, move.From.Col));
+
+                var occupant = _views[move.To.Row, move.To.Col];
+                if (occupant != null && occupant != v)
+                {
+                    DestroyImmediate(occupant.gameObject);
+                    _views[move.To.Row, move.To.Col] = null;
+                }
+
+                _views[move.From.Row, move.From.Col] = null;
+                _views[move.To.Row, move.To.Col] = v;
+                v.SetGridPos(move.To.Row, move.To.Col);
+                falling.Add((v, v.transform.localPosition, CellLocal(move.To.Row, move.To.Col)));
+            }
+
+            // 道具若停在原地（未出现在 Falls.From）
+            foreach (var (at, type) in step.SpawnedBoosters)
+            {
+                if (_model.Get(at.Row, at.Col) != type) continue;
+                if (_views[at.Row, at.Col] != null) continue;
+                _views[at.Row, at.Col] = CreateTileView(type, at.Row, at.Col, CellLocal(at.Row, at.Col));
+            }
+
+            // 新生成：从上方落入
+            var spawning = new List<(TileView view, Vector3 from, Vector3 to)>();
+            foreach (var spawn in step.Spawns)
+            {
+                if (_views[spawn.To.Row, spawn.To.Col] != null) continue;
+                if (_model.Get(spawn.To.Row, spawn.To.Col) == TileType.Empty) continue;
+
+                var dest = CellLocal(spawn.To.Row, spawn.To.Col);
+                var start = dest + Vector3.up * (cellSize * (spawn.To.Row + 2));
+                var v = CreateTileView(spawn.Type, spawn.To.Row, spawn.To.Col, start);
+                _views[spawn.To.Row, spawn.To.Col] = v;
+                spawning.Add((v, start, dest));
+            }
+
+            // 播放下落
+            t = 0f;
+            while (t < fallDur)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / fallDur);
+                u = u * u * (3f - 2f * u);
+                foreach (var f in falling)
+                    if (f.view != null) f.view.transform.localPosition = Vector3.Lerp(f.from, f.to, u);
+                foreach (var s in spawning)
+                    if (s.view != null) s.view.transform.localPosition = Vector3.Lerp(s.from, s.to, u);
+                yield return null;
+            }
+
+            foreach (var f in falling)
+                if (f.view != null) f.view.transform.localPosition = f.to;
+            foreach (var s in spawning)
+                if (s.view != null) s.view.transform.localPosition = s.to;
+
+            // 最终与 Model 对齐（补洞、去叠）
+            RebuildViews();
+        }
+
+        TileView CreateTileView(TileType type, int row, int col, Vector3 localPos)
+        {
+            var sprite = catalog != null ? catalog.GetSprite(type) : null;
+            if (sprite == null)
+            {
+                Debug.LogWarning($"[BoardView] Missing sprite for {type}, using fallback.");
+                sprite = CreateFallbackSprite(type);
+            }
+
+            var go = new GameObject($"Tile_{row}_{col}_{type}");
+            go.transform.SetParent(tileRoot, false);
+            go.transform.localPosition = localPos;
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = sprite;
+            sr.sortingOrder = 10;
+            var view = go.AddComponent<TileView>();
+            view.Setup(type, sprite, row, col, cellSize);
+            return view;
+        }
+
+        static Sprite CreateFallbackSprite(TileType type)
+        {
+            var tex = new Texture2D(8, 8, TextureFormat.RGBA32, false);
+            var color = type switch
+            {
+                TileType.Propeller => new Color(1f, 0.4f, 0.9f),
+                TileType.Bomb => new Color(1f, 0.2f, 0.2f),
+                TileType.RocketH => new Color(0.3f, 0.8f, 1f),
+                TileType.RocketV => new Color(0.3f, 0.8f, 1f),
+                TileType.ColorBall => new Color(1f, 0.85f, 0.2f),
+                _ => Color.magenta
+            };
+            var pixels = new Color[64];
+            for (int i = 0; i < pixels.Length; i++) pixels[i] = color;
+            tex.SetPixels(pixels);
+            tex.Apply(false, true);
+            return Sprite.Create(tex, new Rect(0, 0, 8, 8), new Vector2(0.5f, 0.5f), 8f);
         }
 
         void RefreshBoardBg()
@@ -84,73 +278,10 @@ namespace CandyCrush.View
             boardBg.sortingOrder = 0;
         }
 
-        public bool TryGetCell(Vector3 worldPos, out int row, out int col)
-        {
-            var local = transform.InverseTransformPoint(worldPos);
-            return GridUtil.TryWorldToCell(local, _model.Rows, _model.Cols, cellSize, boardOrigin, out row, out col);
-        }
-
-        public TileView GetView(int row, int col) =>
-            _model != null && _model.InBounds(row, col) ? _views[row, col] : null;
-
         static void ClearChildren(Transform root)
         {
             for (int i = root.childCount - 1; i >= 0; i--)
-            {
-                var child = root.GetChild(i);
-                if (Application.isPlaying) Destroy(child.gameObject);
-                else DestroyImmediate(child.gameObject);
-            }
-        }
-    }
-
-    /// <summary>参考视频/图一的初始布局：上 4 行四色，第 5 行两侧箱+中间三色，底 3 行全箱（共 33 箱）。</summary>
-    public static class DemoLayouts
-    {
-        // R=红帽 Y=黄铃 B=蓝枕 G=绿叶 S=行李箱 — 严格对齐参考截图
-        static readonly TileType[,] VideoBoard8x9 =
-        {
-            // row 0: 叶 枕 帽 帽 铃 叶 铃 枕 帽
-            { TileType.Green, TileType.Blue, TileType.Red, TileType.Red, TileType.Yellow, TileType.Green, TileType.Yellow, TileType.Blue, TileType.Red },
-            // row 1: 叶 铃 帽 铃 枕 铃 铃 帽 枕
-            { TileType.Green, TileType.Yellow, TileType.Red, TileType.Yellow, TileType.Blue, TileType.Yellow, TileType.Yellow, TileType.Red, TileType.Blue },
-            // row 2: 帽 枕 铃 叶 帽 叶 叶 铃 叶
-            { TileType.Red, TileType.Blue, TileType.Yellow, TileType.Green, TileType.Red, TileType.Green, TileType.Green, TileType.Yellow, TileType.Green },
-            // row 3: 枕 叶 叶 枕 叶 枕 铃 帽 铃
-            { TileType.Blue, TileType.Green, TileType.Green, TileType.Blue, TileType.Green, TileType.Blue, TileType.Yellow, TileType.Red, TileType.Yellow },
-            // row 4: 箱箱箱 叶铃叶 箱箱箱
-            { TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Green, TileType.Yellow, TileType.Green, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase },
-            // row 5-7: 全箱
-            { TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase },
-            { TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase },
-            { TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase },
-        };
-
-        public static TileType[,] BuildVideoStyleBoard(int rows, int cols)
-        {
-            var layout = new TileType[rows, cols];
-            int copyRows = Math.Min(rows, VideoBoard8x9.GetLength(0));
-            int copyCols = Math.Min(cols, VideoBoard8x9.GetLength(1));
-
-            for (int r = 0; r < copyRows; r++)
-            for (int c = 0; c < copyCols; c++)
-                layout[r, c] = VideoBoard8x9[r, c];
-
-            // 尺寸不一致时：多出的行填行李箱，多出的列用四色补齐（避免三连）
-            var normals = new[] { TileType.Red, TileType.Yellow, TileType.Blue, TileType.Green };
-            for (int r = 0; r < rows; r++)
-            for (int c = 0; c < cols; c++)
-            {
-                if (r < copyRows && c < copyCols) continue;
-                if (r >= 4)
-                {
-                    layout[r, c] = TileType.Suitcase;
-                    continue;
-                }
-                layout[r, c] = normals[(r + c) % normals.Length];
-            }
-
-            return layout;
+                DestroyImmediate(root.GetChild(i).gameObject);
         }
     }
 }
