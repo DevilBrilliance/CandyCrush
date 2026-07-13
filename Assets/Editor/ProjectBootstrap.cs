@@ -3,7 +3,6 @@ using System.IO;
 using CandyCrush.Data;
 using CandyCrush.Game;
 using CandyCrush.View;
-using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEditor.U2D;
@@ -354,17 +353,22 @@ namespace CandyCrush.EditorTools
             var textRt = textGo.GetComponent<RectTransform>();
             textRt.anchorMin = textRt.anchorMax = new Vector2(0.62f, 0.5f);
             textRt.sizeDelta = new Vector2(160f, 80f);
-            var tmp = textGo.AddComponent<TextMeshProUGUI>();
-            tmp.text = "15";
-            tmp.fontSize = 64;
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.color = Color.white;
-            tmp.fontStyle = FontStyles.Bold;
+            var sourceFont = AssetDatabase.LoadAssetAtPath<Font>($"{ArtRoot}/Fonts/BPreplay.ttf");
+            var uiText = textGo.AddComponent<Text>();
+            uiText.text = "15";
+            uiText.fontSize = 64;
+            uiText.alignment = TextAnchor.MiddleCenter;
+            uiText.color = new Color(0.32f, 0.2f, 0.12f, 1f);
+            uiText.fontStyle = FontStyle.Bold;
+            uiText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            uiText.verticalOverflow = VerticalWrapMode.Overflow;
+            if (sourceFont != null) uiText.font = sourceFont;
 
             var goalHud = goalPanel.AddComponent<GoalHUD>();
             var hudSo = new SerializedObject(goalHud);
             hudSo.FindProperty("icon").objectReferenceValue = iconImg;
-            hudSo.FindProperty("countText").objectReferenceValue = tmp;
+            hudSo.FindProperty("countText").objectReferenceValue = uiText;
+            hudSo.FindProperty("sourceFont").objectReferenceValue = sourceFont;
             hudSo.ApplyModifiedPropertiesWithoutUndo();
 
             // Win panel
@@ -382,11 +386,15 @@ namespace CandyCrush.EditorTools
             var greatRt = greatGo.GetComponent<RectTransform>();
             greatRt.anchorMin = greatRt.anchorMax = new Vector2(0.5f, 0.72f);
             greatRt.sizeDelta = new Vector2(600f, 140f);
-            var greatTmp = greatGo.AddComponent<TextMeshProUGUI>();
-            greatTmp.text = "Great";
-            greatTmp.fontSize = 96;
-            greatTmp.alignment = TextAlignmentOptions.Center;
-            greatTmp.color = new Color(1f, 0.85f, 0.2f);
+            var greatText = greatGo.AddComponent<Text>();
+            greatText.text = "Great";
+            greatText.fontSize = 96;
+            greatText.alignment = TextAnchor.MiddleCenter;
+            greatText.color = new Color(1f, 0.85f, 0.2f);
+            greatText.fontStyle = FontStyle.Bold;
+            greatText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            greatText.verticalOverflow = VerticalWrapMode.Overflow;
+            if (sourceFont != null) greatText.font = sourceFont;
 
             var winSuitcase = new GameObject("WinSuitcase", typeof(RectTransform));
             winSuitcase.transform.SetParent(winGo.transform, false);

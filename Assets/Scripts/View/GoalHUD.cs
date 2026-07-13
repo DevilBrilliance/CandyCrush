@@ -1,5 +1,4 @@
 using System.Collections;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,10 +7,36 @@ namespace CandyCrush.View
     public class GoalHUD : MonoBehaviour
     {
         [SerializeField] Image icon;
-        [SerializeField] TextMeshProUGUI countText;
+        [SerializeField] Text countText;
+        [SerializeField] Font sourceFont;
 
         public Image Icon => icon;
         public RectTransform IconRect => icon != null ? icon.rectTransform : transform as RectTransform;
+
+        void Awake() => EnsureCountVisible();
+
+        void EnsureCountVisible()
+        {
+            if (countText == null) return;
+
+            if (countText.font == null)
+            {
+                var src = sourceFont;
+                if (src == null)
+                    src = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf")
+                         ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+                if (src != null)
+                    countText.font = src;
+            }
+
+            countText.fontStyle = FontStyle.Bold;
+            countText.alignment = TextAnchor.MiddleCenter;
+            countText.color = new Color(0.32f, 0.2f, 0.12f, 1f);
+            countText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            countText.verticalOverflow = VerticalWrapMode.Overflow;
+            if (string.IsNullOrEmpty(countText.text))
+                countText.text = "0";
+        }
 
         public void SetIcon(Sprite sprite)
         {
@@ -20,11 +45,11 @@ namespace CandyCrush.View
 
         public void SetRemaining(int remaining)
         {
+            EnsureCountVisible();
             if (countText != null)
                 countText.text = remaining.ToString();
         }
 
-        /// <summary>把 UI 箱子图标中心转到世界坐标，供飞行特效对准。</summary>
         public Vector3 GetIconWorldPosition(Camera worldCam)
         {
             var rt = IconRect;
