@@ -23,7 +23,7 @@ namespace CandyCrush.Vfx
         }
     }
 
-    /// <summary>消除闪光占位（粒子可后续替换）。</summary>
+    /// <summary>消除闪光占位（已由 ClearBurstFx 接管碎裂粒子）。</summary>
     public static class ClearFx
     {
         public static void SpawnFlash(Transform parent, Vector3 localPos, Color color)
@@ -34,7 +34,6 @@ namespace CandyCrush.Vfx
             var sr = go.AddComponent<SpriteRenderer>();
             sr.color = new Color(color.r, color.g, color.b, 0.85f);
             sr.sortingOrder = 40;
-            // 用 1x1 白贴
             var tex = Texture2D.whiteTexture;
             sr.sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 4f);
             go.transform.localScale = Vector3.one * 0.6f;

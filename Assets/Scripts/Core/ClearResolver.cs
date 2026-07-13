@@ -32,9 +32,11 @@ namespace CandyCrush.Core
             IEnumerable<GridPos> clearCells,
             ObjectiveTracker objective,
             out List<GridPos> cleared,
+            out List<TileType> clearedTypes,
             out List<GridPos> collectedSuitcases)
         {
             cleared = new List<GridPos>();
+            clearedTypes = new List<TileType>();
             collectedSuitcases = new List<GridPos>();
             var set = new HashSet<GridPos>();
 
@@ -55,6 +57,7 @@ namespace CandyCrush.Core
 
                 board.Set(p.Row, p.Col, TileType.Empty);
                 cleared.Add(p);
+                clearedTypes.Add(t);
             }
         }
 

@@ -129,8 +129,9 @@ namespace CandyCrush.Core
 
         void ApplyClear(BoardModel board, List<GridPos> clearSet, CascadeStepResult result)
         {
-            ClearResolver.Resolve(board, clearSet, Objective, out var cleared, out var collected);
+            ClearResolver.Resolve(board, clearSet, Objective, out var cleared, out var clearedTypes, out var collected);
             result.Cleared.AddRange(cleared);
+            result.ClearedTypes.AddRange(clearedTypes);
             result.CollectedSuitcases.AddRange(collected);
         }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using CandyCrush.Common;
 using CandyCrush.Core;
 using CandyCrush.Data;
+using CandyCrush.Vfx;
 using UnityEngine;
 
 namespace CandyCrush.View
@@ -22,6 +23,7 @@ namespace CandyCrush.View
 
         BoardModel _model;
         TileView[,] _views;
+        ClearBurstFx _clearFx;
 
         public BoardModel Model => _model;
         public TileSpriteCatalog Catalog => catalog;
@@ -45,6 +47,7 @@ namespace CandyCrush.View
             _model.Fill(layout);
             RebuildViews();
             RefreshBoardBg();
+            _clearFx = ClearBurstFx.Ensure(transform, catalog);
         }
 
         public void RebuildViews()
@@ -153,34 +156,42 @@ namespace CandyCrush.View
         {
             if (step == null || !step.HadWork) yield break;
 
-            float clearDur = clearDuration > 0.01f ? clearDuration : 0.15f;
+            float clearDur = clearDuration > 0.01f ? clearDuration : 0.16f;
             float fallDur = fallDuration > 0.01f ? fallDuration : 0.22f;
 
-            // --- 消除 ---
-            var fading = new List<(TileView view, float baseScale)>();
-            foreach (var p in step.Cleared)
+            if (_clearFx == null)
+                _clearFx = ClearBurstFx.Ensure(transform, catalog);
+            else
+                _clearFx.Configure(catalog);
+
+            // --- 消除：立刻隐藏棋子，碎裂由 ClearBurstFx 承担 ---
+            var toDestroy = new List<TileView>();
+            for (int i = 0; i < step.Cleared.Count; i++)
             {
+                var p = step.Cleared[i];
                 var v = _views[p.Row, p.Col];
+                var type = i < step.ClearedTypes.Count
+                    ? step.ClearedTypes[i]
+                    : (v != null ? v.Type : TileType.Empty);
+
+                var world = transform.TransformPoint(CellLocal(p.Row, p.Col));
+                if (type != TileType.Empty)
+                    _clearFx.Play(type, world, cellSize);
+
                 if (v == null) continue;
-                fading.Add((v, v.transform.localScale.x));
                 _views[p.Row, p.Col] = null;
+                v.gameObject.SetActive(false);
+                toDestroy.Add(v);
             }
 
             float t = 0f;
             while (t < clearDur)
             {
                 t += Time.deltaTime;
-                float s = 1f - Mathf.Clamp01(t / clearDur);
-                foreach (var (view, baseScale) in fading)
-                {
-                    if (view == null) continue;
-                    view.transform.localScale = Vector3.one * (baseScale * s);
-                    view.SetAlpha(s);
-                }
                 yield return null;
             }
 
-            foreach (var (view, _) in fading)
+            foreach (var view in toDestroy)
                 DestroyTile(view);
 
             // --- 下落 ---

@@ -232,9 +232,25 @@ namespace CandyCrush.EditorTools
             };
             catalog.boardCellSprite = Load($"{ArtRoot}/Sprites/Board/candy_bg_01.png");
             catalog.boardFrameSprite = Load($"{ArtRoot}/Sprites/UI/UIpanel_outside.png");
+            catalog.clearFlashSprite = Load($"{ArtRoot}/Sprites/Vfx/candy_12_particle.png");
+            catalog.clearParticles = new[]
+            {
+                MakeClearSet(TileType.Red, "1_1"),
+                MakeClearSet(TileType.Yellow, "1_2"),
+                MakeClearSet(TileType.Blue, "1_3"),
+                MakeClearSet(TileType.Green, "1_4"),
+            };
 
             EditorUtility.SetDirty(catalog);
             return catalog;
+
+            TileSpriteCatalog.ClearParticleSet MakeClearSet(TileType type, string colorKey)
+            {
+                var shards = new Sprite[4];
+                for (int i = 0; i < 4; i++)
+                    shards[i] = Load($"{ArtRoot}/Sprites/Vfx/particle_die_candy_{colorKey}_0{i + 1}.png");
+                return new TileSpriteCatalog.ClearParticleSet { type = type, shards = shards };
+            }
         }
 
         static LevelConfig CreateDemoLevelConfig()

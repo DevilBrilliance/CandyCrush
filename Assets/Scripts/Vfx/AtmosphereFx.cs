@@ -3,7 +3,8 @@ using UnityEngine;
 namespace CandyCrush.Vfx
 {
     /// <summary>
-    /// 全屏白点飘雪：渲染在棋盘之上（sortingOrder 高），Ignore Raycast 不挡点击。
+    /// 全屏白点飘雪：最上层（高于棋子与消除碎块），Ignore Raycast 不挡点击。
+    /// sorting：棋子 10 &lt; 碎块 100 &lt; 雪花 200
     /// </summary>
     public class AtmosphereFx : MonoBehaviour
     {
@@ -102,6 +103,7 @@ namespace CandyCrush.Vfx
 
             var renderer = snowGo.GetComponent<ParticleSystemRenderer>();
             renderer.renderMode = ParticleSystemRenderMode.Billboard;
+            renderer.sortingLayerName = "Default";
             renderer.sortingOrder = SnowSortingOrder;
             renderer.alignment = ParticleSystemRenderSpace.View;
             renderer.sharedMaterial = GetSharedSnowMaterial();

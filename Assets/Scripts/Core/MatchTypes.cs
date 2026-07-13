@@ -48,6 +48,8 @@ namespace CandyCrush.Core
     public sealed class CascadeStepResult
     {
         public readonly List<GridPos> Cleared = new List<GridPos>();
+        /// <summary>与 Cleared 一一对应的被消棋子类型（用于碎裂特效）。</summary>
+        public readonly List<TileType> ClearedTypes = new List<TileType>();
         public readonly List<GridPos> CollectedSuitcases = new List<GridPos>();
         public readonly List<(GridPos at, TileType booster)> SpawnedBoosters = new List<(GridPos, TileType)>();
         public readonly List<FallMove> Falls = new List<FallMove>();

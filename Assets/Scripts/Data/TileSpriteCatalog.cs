@@ -14,9 +14,18 @@ namespace CandyCrush.Data
             public Sprite sprite;
         }
 
+        [Serializable]
+        public struct ClearParticleSet
+        {
+            public TileType type;
+            public Sprite[] shards;
+        }
+
         public Entry[] entries;
         public Sprite boardCellSprite;
         public Sprite boardFrameSprite;
+        public ClearParticleSet[] clearParticles;
+        public Sprite clearFlashSprite;
 
         public Sprite GetSprite(TileType type)
         {
@@ -25,6 +34,17 @@ namespace CandyCrush.Data
             {
                 if (entries[i].type == type)
                     return entries[i].sprite;
+            }
+            return null;
+        }
+
+        public Sprite[] GetClearShards(TileType type)
+        {
+            if (clearParticles == null) return null;
+            for (int i = 0; i < clearParticles.Length; i++)
+            {
+                if (clearParticles[i].type == type)
+                    return clearParticles[i].shards;
             }
             return null;
         }
