@@ -27,7 +27,6 @@ namespace CandyCrush.View
 
         public BoardModel Model => _model;
         public TileSpriteCatalog Catalog => catalog;
-        public float CellSize => cellSize;
         public LevelConfig Config => levelConfig;
 
         public void Initialize(LevelConfig config, TileSpriteCatalog sprites)

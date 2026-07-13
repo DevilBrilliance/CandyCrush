@@ -15,15 +15,15 @@ namespace CandyCrush.Core
         readonly int[] _spawnWeights;
         readonly bool _enableColorBall;
         readonly Random _rng;
-        public ObjectiveTracker Objective { get; }
+        readonly ObjectiveTracker _objective;
         public int Round { get; private set; }
 
-        public CascadeResolver(LevelConfig config, ObjectiveTracker objective, int? seed = null)
+        public CascadeResolver(LevelConfig config, ObjectiveTracker objective)
         {
-            Objective = objective;
+            _objective = objective;
             _spawnWeights = config.spawnWeights;
             _enableColorBall = config.enableColorBall;
-            _rng = seed.HasValue ? new Random(seed.Value) : new Random();
+            _rng = new Random();
         }
 
         /// <summary>每次玩家操作开始时重置，避免整关累计触顶后无法再消。</summary>
@@ -129,7 +129,7 @@ namespace CandyCrush.Core
 
         void ApplyClear(BoardModel board, List<GridPos> clearSet, CascadeStepResult result)
         {
-            ClearResolver.Resolve(board, clearSet, Objective, out var cleared, out var clearedTypes, out var collected);
+            ClearResolver.Resolve(board, clearSet, _objective, out var cleared, out var clearedTypes, out var collected);
             result.Cleared.AddRange(cleared);
             result.ClearedTypes.AddRange(clearedTypes);
             result.CollectedSuitcases.AddRange(collected);

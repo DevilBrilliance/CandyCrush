@@ -39,7 +39,5 @@ namespace CandyCrush.Data
         public static bool IsBooster(TileType t) =>
             t == TileType.RocketH || t == TileType.RocketV || t == TileType.Propeller ||
             t == TileType.Bomb || t == TileType.ColorBall;
-
-        public static bool ParticipatesInColorMatch(TileType t) => IsNormal(t);
     }
 }

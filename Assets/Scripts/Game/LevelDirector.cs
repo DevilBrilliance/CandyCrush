@@ -1,3 +1,4 @@
+using CandyCrush.Common;
 using CandyCrush.Data;
 using CandyCrush.View;
 using CandyCrush.Vfx;
@@ -19,14 +20,10 @@ namespace CandyCrush.Game
         [SerializeField] InputController input;
         [SerializeField] float portraitOrthoSize = 8.2f;
 
-        AtmosphereFx _atmosphere;
         Camera _cam;
         int _fitScreenW = -1;
         int _fitScreenH = -1;
         float _fitAspect = -1f;
-
-        public BoardView Board => boardView;
-        public GameFlowController Flow => flow;
 
         void Awake()
         {
@@ -95,15 +92,18 @@ namespace CandyCrush.Game
 
             int suitcases = CountSuitcases(boardView.Model);
             if (goalHud != null)
-            {
                 goalHud.SetIcon(catalog.GetSprite(TileType.Suitcase));
-                goalHud.SetRemaining(Mathf.Min(levelConfig.objectiveCount, suitcases));
+
+            EventBus.Publish(new ObjectiveChangedEvent(Mathf.Min(levelConfig.objectiveCount, suitcases)));
+            if (winPanel != null)
+            {
+                if (!winPanel.gameObject.activeSelf)
+                    winPanel.gameObject.SetActive(true);
+                winPanel.Hide();
             }
 
-            if (winPanel != null) winPanel.Hide();
-
             if (atmosphereRoot == null) atmosphereRoot = transform;
-            _atmosphere = AtmosphereFx.CreateDefault(atmosphereRoot);
+            AtmosphereFx.CreateDefault(atmosphereRoot);
 
             flow.Bind(boardView, goalHud, winPanel);
             if (input != null) input.Bind(boardView, flow);

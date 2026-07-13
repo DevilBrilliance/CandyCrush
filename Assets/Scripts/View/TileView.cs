@@ -13,15 +13,6 @@ namespace CandyCrush.View
         SpriteRenderer _sr;
         float _baseScale = 1f;
 
-        public SpriteRenderer Renderer
-        {
-            get
-            {
-                if (_sr == null) _sr = GetComponent<SpriteRenderer>();
-                return _sr;
-            }
-        }
-
         void Awake() => _sr = GetComponent<SpriteRenderer>();
 
         public void Setup(TileType type, Sprite sprite, int row, int col, float cellSize)

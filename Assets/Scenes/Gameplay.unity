@@ -625,6 +625,9 @@ MonoBehaviour:
   winPanel: {fileID: 1811213842}
   atmosphereRoot: {fileID: 840395388}
   background: {fileID: 2116280853}
+  flow: {fileID: 0}
+  input: {fileID: 0}
+  portraitOrthoSize: 8.2
 --- !u!4 &1001274111
 Transform:
   m_ObjectHideFlags: 0
@@ -958,6 +961,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   boardView: {fileID: 840395387}
+  flow: {fileID: 0}
   worldCamera: {fileID: 1036905524}
 --- !u!4 &1379944786
 Transform:

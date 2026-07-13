@@ -27,7 +27,6 @@ namespace CandyCrush.Game
 
         public GameFlowState State { get; private set; } = GameFlowState.Idle;
         public bool IsIdle => State == GameFlowState.Idle;
-        public ObjectiveTracker Objective => _objective;
 
         public void Bind(BoardView board, GoalHUD hud, WinPanel win)
         {
@@ -47,7 +46,7 @@ namespace CandyCrush.Game
             _enableColorBall = config.enableColorBall;
             State = GameFlowState.Idle;
 
-            if (goalHud != null) goalHud.SetRemaining(_objective.Remaining);
+            EventBus.Publish(new ObjectiveChangedEvent(_objective.Remaining));
             if (winPanel != null) winPanel.Hide();
 
             // 开局若已有匹配则自动消一轮
@@ -116,10 +115,9 @@ namespace CandyCrush.Game
 
                 if (step.CollectedSuitcases.Count > 0)
                 {
-                    EventBus.Publish(new ObjectiveChangedEvent(_objective.Remaining));
                     if (goalHud != null && boardView != null)
                     {
-                        // 格心立刻摘掉箱子视图，副本飞向 UI；连锁继续
+                        // 格心立刻摘掉箱子视图，副本飞向 UI；计数经 EventBus 更新
                         boardView.ConsumeViews(step.CollectedSuitcases);
                         yield return CandyCrush.Vfx.CollectFx.FlySuitcases(
                             step.CollectedSuitcases,
@@ -127,6 +125,10 @@ namespace CandyCrush.Game
                             goalHud,
                             boardView.Catalog,
                             _objective.Remaining);
+                    }
+                    else
+                    {
+                        EventBus.Publish(new ObjectiveChangedEvent(_objective.Remaining));
                     }
                 }
 
@@ -137,7 +139,6 @@ namespace CandyCrush.Game
                     boardView.SyncFromModel();
                     State = GameFlowState.Won;
                     EventBus.Publish(new LevelWinEvent(_objective.Remaining));
-                    if (winPanel != null) winPanel.Show();
                     yield break;
                 }
             }

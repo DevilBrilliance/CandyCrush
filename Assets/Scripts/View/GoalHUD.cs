@@ -1,4 +1,5 @@
 using System.Collections;
+using CandyCrush.Common;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -13,7 +14,12 @@ namespace CandyCrush.View
         public Image Icon => icon;
         public RectTransform IconRect => icon != null ? icon.rectTransform : transform as RectTransform;
 
+        void OnEnable() => EventBus.Subscribe<ObjectiveChangedEvent>(OnObjectiveChanged);
+        void OnDisable() => EventBus.Unsubscribe<ObjectiveChangedEvent>(OnObjectiveChanged);
+
         void Awake() => EnsureCountVisible();
+
+        void OnObjectiveChanged(ObjectiveChangedEvent evt) => SetRemaining(evt.Remaining);
 
         void EnsureCountVisible()
         {
@@ -48,29 +54,6 @@ namespace CandyCrush.View
             EnsureCountVisible();
             if (countText != null)
                 countText.text = remaining.ToString();
-        }
-
-        public Vector3 GetIconWorldPosition(Camera worldCam)
-        {
-            var rt = IconRect;
-            if (rt == null)
-                return Vector3.zero;
-
-            if (worldCam == null) worldCam = Camera.main;
-
-            var canvas = rt.GetComponentInParent<Canvas>();
-            Camera uiCam = null;
-            if (canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay)
-                uiCam = canvas.worldCamera != null ? canvas.worldCamera : worldCam;
-
-            Vector2 screen = RectTransformUtility.WorldToScreenPoint(uiCam, rt.position);
-            if (worldCam == null)
-                return rt.position;
-
-            float depth = Mathf.Abs(worldCam.transform.position.z);
-            var world = worldCam.ScreenToWorldPoint(new Vector3(screen.x, screen.y, depth));
-            world.z = 0f;
-            return world;
         }
 
         public IEnumerator PunchIcon(float duration = 0.2f)

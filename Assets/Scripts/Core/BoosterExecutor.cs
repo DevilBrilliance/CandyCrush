@@ -14,16 +14,6 @@ namespace CandyCrush.Core
             BoosterType.ColorBall => TileType.ColorBall,
             _ => TileType.Empty
         };
-
-        public static BoosterType FromTile(TileType t) => t switch
-        {
-            TileType.RocketH => BoosterType.RocketH,
-            TileType.RocketV => BoosterType.RocketV,
-            TileType.Propeller => BoosterType.Propeller,
-            TileType.Bomb => BoosterType.Bomb,
-            TileType.ColorBall => BoosterType.ColorBall,
-            _ => BoosterType.None
-        };
     }
 
     /// <summary>道具效果：火箭清行/列、炸弹 3×3、螺旋桨追箱、彩球同色。</summary>

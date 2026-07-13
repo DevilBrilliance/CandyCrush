@@ -20,7 +20,6 @@ namespace CandyCrush.Core
     public sealed class MatchGroup
     {
         public readonly List<GridPos> Cells = new List<GridPos>();
-        public TileType Color = TileType.Empty;
         public BoosterType SpawnBooster = BoosterType.None;
         public GridPos SpawnAt;
     }

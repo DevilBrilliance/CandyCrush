@@ -20,13 +20,7 @@ namespace CandyCrush.Vfx
                 snow.Play(true);
         }
 
-        public void Stop()
-        {
-            if (snow != null)
-                snow.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-        }
-
-        public static AtmosphereFx CreateDefault(Transform parent, Sprite unused = null)
+        public static AtmosphereFx CreateDefault(Transform parent)
         {
             // 旧实例常绑了整张图集，强制重建
             if (parent != null)

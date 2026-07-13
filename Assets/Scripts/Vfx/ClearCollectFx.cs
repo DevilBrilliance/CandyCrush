@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using CandyCrush.Common;
 using CandyCrush.Core;
 using CandyCrush.Data;
 using CandyCrush.View;
@@ -11,24 +12,8 @@ namespace CandyCrush.Vfx
     /// <summary>行李箱收集：从棋盘格心弧线飞到 GoalHUD（在 Canvas 上层，盖住 UI）。</summary>
     public static class CollectFx
     {
-        public static IEnumerator Punch(RectTransform target, float duration = 0.2f)
-        {
-            if (target == null) yield break;
-            var baseScale = target.localScale;
-            float t = 0f;
-            while (t < duration)
-            {
-                t += Time.deltaTime;
-                float u = Mathf.Clamp01(t / duration);
-                float s = 1f + Mathf.Sin(u * Mathf.PI) * 0.25f;
-                target.localScale = baseScale * s;
-                yield return null;
-            }
-            target.localScale = baseScale;
-        }
-
         /// <summary>
-        /// 箱子从格心飞向 UI：错开起飞，到达时倒数 HUD，全部到齐后 punch 图标。
+        /// 箱子从格心飞向 UI：错开起飞，到达时经 EventBus 倒数 HUD，全部到齐后 punch 图标。
         /// 使用 UI Image 挂在 Canvas 最上层，避免被 HUD 挡住。
         /// </summary>
         public static IEnumerator FlySuitcases(
@@ -71,7 +56,7 @@ namespace CandyCrush.Vfx
                 iconSize = Mathf.Max(goalHud.IconRect.rect.width, goalHud.IconRect.rect.height);
 
             int display = remainingAfter + cells.Count;
-            goalHud.SetRemaining(display);
+            EventBus.Publish(new ObjectiveChangedEvent(display));
 
             int arrived = 0;
             int total = cells.Count;
@@ -90,7 +75,7 @@ namespace CandyCrush.Vfx
                     {
                         arrived++;
                         display = Mathf.Max(remainingAfter, display - 1);
-                        goalHud.SetRemaining(display);
+                        EventBus.Publish(new ObjectiveChangedEvent(display));
                         if (arrived >= total)
                             goalHud.StartCoroutine(goalHud.PunchIcon());
                     }));
@@ -215,24 +200,6 @@ namespace CandyCrush.Vfx
         {
             float u = 1f - t;
             return u * u * a + 2f * u * t * b + t * t * c;
-        }
-    }
-
-    /// <summary>消除闪光占位（已由 ClearBurstFx 接管碎裂粒子）。</summary>
-    public static class ClearFx
-    {
-        public static void SpawnFlash(Transform parent, Vector3 localPos, Color color)
-        {
-            var go = new GameObject("ClearFlash");
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = localPos;
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.color = new Color(color.r, color.g, color.b, 0.85f);
-            sr.sortingOrder = 40;
-            var tex = Texture2D.whiteTexture;
-            sr.sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 4f);
-            go.transform.localScale = Vector3.one * 0.6f;
-            Object.Destroy(go, 0.2f);
         }
     }
 }

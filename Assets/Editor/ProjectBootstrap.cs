@@ -230,7 +230,6 @@ namespace CandyCrush.EditorTools
                 new TileSpriteCatalog.Entry { type = TileType.ColorBall, sprite = Load($"{ArtRoot}/Sprites/Tiles/boost_candy_rainbow.png") },
             };
             catalog.boardCellSprite = Load($"{ArtRoot}/Sprites/Board/candy_bg_01.png");
-            catalog.boardFrameSprite = Load($"{ArtRoot}/Sprites/UI/UIpanel_outside.png");
             catalog.clearFlashSprite = Load($"{ArtRoot}/Sprites/Vfx/candy_12_particle.png");
             catalog.clearParticles = new[]
             {
@@ -409,7 +408,8 @@ namespace CandyCrush.EditorTools
             var winSo = new SerializedObject(winPanel);
             winSo.FindProperty("root").objectReferenceValue = winGo;
             winSo.ApplyModifiedPropertiesWithoutUndo();
-            winGo.SetActive(false);
+            // 保持 Active 以订阅 EventBus；Hide 用 CanvasGroup
+            winPanel.Hide();
 
             // EventSystem
             if (Object.FindObjectOfType<UnityEngine.EventSystems.EventSystem>() == null)

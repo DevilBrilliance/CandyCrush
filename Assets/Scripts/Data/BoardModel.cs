@@ -40,15 +40,6 @@ namespace CandyCrush.Data
         public bool InBounds(int row, int col) =>
             row >= 0 && row < Rows && col >= 0 && col < Cols;
 
-        public BoardModel Clone()
-        {
-            var copy = new BoardModel(Rows, Cols);
-            for (int r = 0; r < Rows; r++)
-            for (int c = 0; c < Cols; c++)
-                copy._cells[r, c] = _cells[r, c];
-            return copy;
-        }
-
         public void Fill(TileType[,] layout)
         {
             if (layout == null) throw new ArgumentNullException(nameof(layout));

@@ -20,8 +20,5 @@ namespace CandyCrush.Common
             row = Mathf.RoundToInt(fy);
             return row >= 0 && row < rows && col >= 0 && col < cols;
         }
-
-        public static bool AreAdjacent(int r0, int c0, int r1, int c1) =>
-            Mathf.Abs(r0 - r1) + Mathf.Abs(c0 - c1) == 1;
     }
 }

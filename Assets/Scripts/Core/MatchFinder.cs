@@ -19,13 +19,13 @@ namespace CandyCrush.Core
                 while (c < cols)
                 {
                     var t = board.Get(r, c);
-                    if (!TileTypeUtil.ParticipatesInColorMatch(t)) { c++; continue; }
+                    if (!TileTypeUtil.IsNormal(t)) { c++; continue; }
                     int start = c;
                     while (c < cols && board.Get(r, c) == t) c++;
                     int len = c - start;
                     if (len >= 3)
                     {
-                        var g = new MatchGroup { Color = t };
+                        var g = new MatchGroup();
                         for (int i = start; i < c; i++)
                         {
                             g.Cells.Add(new GridPos(r, i));
@@ -44,7 +44,7 @@ namespace CandyCrush.Core
                 while (r < rows)
                 {
                     var t = board.Get(r, c);
-                    if (!TileTypeUtil.ParticipatesInColorMatch(t)) { r++; continue; }
+                    if (!TileTypeUtil.IsNormal(t)) { r++; continue; }
                     int start = r;
                     while (r < rows && board.Get(r, c) == t) r++;
                     int len = r - start;
@@ -61,7 +61,7 @@ namespace CandyCrush.Core
 
                         if (target == null)
                         {
-                            target = new MatchGroup { Color = t };
+                            target = new MatchGroup();
                             groups.Add(target);
                         }
 
@@ -96,12 +96,10 @@ namespace CandyCrush.Core
                         }
                         else if (len >= 4 && target.SpawnBooster == BoosterType.None)
                         {
-                            target.SpawnBooster = BoosterType.RocketV;
-                            target.SpawnAt = new GridPos(start + len / 2, c);
-                        }
-                        else if (len >= 5 && enableColorBall && target.SpawnBooster == BoosterType.None)
-                        {
-                            target.SpawnBooster = BoosterType.ColorBall;
+                            // len>=5 且未开彩球时也走火箭
+                            target.SpawnBooster = enableColorBall && len >= 5
+                                ? BoosterType.ColorBall
+                                : BoosterType.RocketV;
                             target.SpawnAt = new GridPos(start + len / 2, c);
                         }
                     }
@@ -109,7 +107,7 @@ namespace CandyCrush.Core
             }
 
             // 2x2 方块 → 螺旋桨
-            FindSquares(board, groups, enableColorBall);
+            FindSquares(board, groups);
 
             // 确保每个 group 有 SpawnAt
             foreach (var g in groups)
@@ -135,13 +133,13 @@ namespace CandyCrush.Core
             }
         }
 
-        static void FindSquares(BoardModel board, List<MatchGroup> groups, bool enableColorBall)
+        static void FindSquares(BoardModel board, List<MatchGroup> groups)
         {
             for (int r = 0; r < board.Rows - 1; r++)
             for (int c = 0; c < board.Cols - 1; c++)
             {
                 var t = board.Get(r, c);
-                if (!TileTypeUtil.ParticipatesInColorMatch(t)) continue;
+                if (!TileTypeUtil.IsNormal(t)) continue;
                 if (board.Get(r, c + 1) != t || board.Get(r + 1, c) != t || board.Get(r + 1, c + 1) != t)
                     continue;
 
@@ -154,7 +152,6 @@ namespace CandyCrush.Core
 
                 var g = new MatchGroup
                 {
-                    Color = t,
                     SpawnBooster = BoosterType.Propeller,
                     SpawnAt = new GridPos(r, c)
                 };

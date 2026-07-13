@@ -23,7 +23,6 @@ namespace CandyCrush.Data
 
         public Entry[] entries;
         public Sprite boardCellSprite;
-        public Sprite boardFrameSprite;
         public ClearParticleSet[] clearParticles;
         public Sprite clearFlashSprite;
 
