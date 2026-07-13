@@ -11,6 +11,16 @@ namespace CandyCrush.View
         public int Col { get; private set; }
 
         SpriteRenderer _sr;
+        float _baseScale = 1f;
+
+        public SpriteRenderer Renderer
+        {
+            get
+            {
+                if (_sr == null) _sr = GetComponent<SpriteRenderer>();
+                return _sr;
+            }
+        }
 
         void Awake() => _sr = GetComponent<SpriteRenderer>();
 
@@ -22,6 +32,7 @@ namespace CandyCrush.View
             if (_sr == null) _sr = GetComponent<SpriteRenderer>();
             _sr.sprite = sprite;
             _sr.sortingOrder = 10;
+            SetAlpha(1f);
             FitToCell(cellSize);
             CacheBaseScale();
             gameObject.name = $"Tile_{row}_{col}_{type}";
@@ -43,14 +54,27 @@ namespace CandyCrush.View
             transform.localScale = Vector3.one * scale;
         }
 
-        float _baseScale = 1f;
-
         public void CacheBaseScale() => _baseScale = transform.localScale.x;
 
         public void SetSelected(bool selected)
         {
             if (_baseScale <= 0.0001f) CacheBaseScale();
             transform.localScale = Vector3.one * (_baseScale * (selected ? 1.1f : 1f));
+        }
+
+        public void SetAlpha(float a)
+        {
+            if (_sr == null) return;
+            var c = _sr.color;
+            c.a = a;
+            _sr.color = c;
+        }
+
+        public void RestoreVisual()
+        {
+            SetAlpha(1f);
+            if (_baseScale > 0.0001f)
+                transform.localScale = Vector3.one * _baseScale;
         }
     }
 }

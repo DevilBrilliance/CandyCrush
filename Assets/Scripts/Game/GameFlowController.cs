@@ -138,7 +138,7 @@ namespace CandyCrush.Game
                 }
             }
 
-            // 兜底：再压实一次 + 全量重建视图
+            // 兜底：再压实一次 + 增量对齐视图（非整盘重建）
             EnsureBoardCompact();
             boardView.SyncFromModel();
             State = GameFlowState.Idle;

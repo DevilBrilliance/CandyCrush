@@ -62,7 +62,50 @@ namespace CandyCrush.View
             }
         }
 
-        public void SyncFromModel() => RebuildViews();
+        /// <summary>增量对齐 Model：只补洞/纠错/清残留，避免全盘 Destroy+新建。</summary>
+        public void SyncFromModel() => ReconcileViews();
+
+        public void ReconcileViews()
+        {
+            if (_model == null) return;
+            if (tileRoot == null) tileRoot = transform;
+            if (_views == null || _views.GetLength(0) != _model.Rows || _views.GetLength(1) != _model.Cols)
+                _views = new TileView[_model.Rows, _model.Cols];
+
+            for (int r = 0; r < _model.Rows; r++)
+            for (int c = 0; c < _model.Cols; c++)
+            {
+                var type = _model.Get(r, c);
+                var view = _views[r, c];
+
+                if (type == TileType.Empty)
+                {
+                    if (view != null)
+                    {
+                        DestroyTile(view);
+                        _views[r, c] = null;
+                    }
+                    continue;
+                }
+
+                if (view != null && view.Type != type)
+                {
+                    DestroyTile(view);
+                    view = null;
+                    _views[r, c] = null;
+                }
+
+                if (view == null)
+                {
+                    _views[r, c] = CreateTileView(type, r, c, CellLocal(r, c));
+                    continue;
+                }
+
+                view.SetGridPos(r, c);
+                view.RestoreVisual();
+                view.transform.localPosition = CellLocal(r, c);
+            }
+        }
 
         public TileView GetView(int row, int col) =>
             _model != null && _model.InBounds(row, col) ? _views[row, col] : null;
@@ -110,7 +153,6 @@ namespace CandyCrush.View
         {
             if (step == null || !step.HadWork) yield break;
 
-            // 场景里若未写入序列化字段，Unity 会把 float 读成 0，动画会瞬间结束
             float clearDur = clearDuration > 0.01f ? clearDuration : 0.15f;
             float fallDur = fallDuration > 0.01f ? fallDuration : 0.22f;
 
@@ -133,24 +175,16 @@ namespace CandyCrush.View
                 {
                     if (view == null) continue;
                     view.transform.localScale = Vector3.one * (baseScale * s);
-                    var sr = view.GetComponent<SpriteRenderer>();
-                    if (sr != null)
-                    {
-                        var c = sr.color;
-                        c.a = s;
-                        sr.color = c;
-                    }
+                    view.SetAlpha(s);
                 }
                 yield return null;
             }
 
             foreach (var (view, _) in fading)
-                if (view != null) DestroyImmediate(view.gameObject);
+                DestroyTile(view);
 
-            // --- 准备下落前的视图：按 Falls 的 From 建/移，生成物稍后补 ---
-            // 先清掉所有与最终盘面无关的残留引用，但保留可复用的下落块
+            // --- 下落 ---
             var falling = new List<(TileView view, Vector3 from, Vector3 to)>();
-
             var fallList = new List<FallMove>(step.Falls);
             fallList.Sort((a, b) =>
             {
@@ -167,7 +201,7 @@ namespace CandyCrush.View
                 var occupant = _views[move.To.Row, move.To.Col];
                 if (occupant != null && occupant != v)
                 {
-                    DestroyImmediate(occupant.gameObject);
+                    DestroyTile(occupant);
                     _views[move.To.Row, move.To.Col] = null;
                 }
 
@@ -177,7 +211,6 @@ namespace CandyCrush.View
                 falling.Add((v, v.transform.localPosition, CellLocal(move.To.Row, move.To.Col)));
             }
 
-            // 道具若停在原地（未出现在 Falls.From）
             foreach (var (at, type) in step.SpawnedBoosters)
             {
                 if (_model.Get(at.Row, at.Col) != type) continue;
@@ -185,7 +218,6 @@ namespace CandyCrush.View
                 _views[at.Row, at.Col] = CreateTileView(type, at.Row, at.Col, CellLocal(at.Row, at.Col));
             }
 
-            // 新生成：从上方落入
             var spawning = new List<(TileView view, Vector3 from, Vector3 to)>();
             foreach (var spawn in step.Spawns)
             {
@@ -199,7 +231,6 @@ namespace CandyCrush.View
                 spawning.Add((v, start, dest));
             }
 
-            // 播放下落
             t = 0f;
             while (t < fallDur)
             {
@@ -218,8 +249,8 @@ namespace CandyCrush.View
             foreach (var s in spawning)
                 if (s.view != null) s.view.transform.localPosition = s.to;
 
-            // 最终与 Model 对齐（补洞、去叠）
-            RebuildViews();
+            // 轻量对齐即可，不再全盘重建
+            ReconcileViews();
         }
 
         TileView CreateTileView(TileType type, int row, int col, Vector3 localPos)
@@ -240,6 +271,13 @@ namespace CandyCrush.View
             var view = go.AddComponent<TileView>();
             view.Setup(type, sprite, row, col, cellSize);
             return view;
+        }
+
+        void DestroyTile(TileView view)
+        {
+            if (view == null) return;
+            if (Application.isPlaying) Destroy(view.gameObject);
+            else DestroyImmediate(view.gameObject);
         }
 
         static Sprite CreateFallbackSprite(TileType type)
@@ -278,10 +316,16 @@ namespace CandyCrush.View
             boardBg.sortingOrder = 0;
         }
 
-        static void ClearChildren(Transform root)
+        void ClearChildren(Transform root)
         {
             for (int i = root.childCount - 1; i >= 0; i--)
-                DestroyImmediate(root.GetChild(i).gameObject);
+            {
+                var child = root.GetChild(i).gameObject;
+                // 先摘掉，避免同帧立刻新建时 childCount 仍含待 Destroy 对象
+                child.transform.SetParent(null, false);
+                if (Application.isPlaying) Destroy(child);
+                else DestroyImmediate(child);
+            }
         }
     }
 }

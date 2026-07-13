@@ -20,6 +20,10 @@ namespace CandyCrush.Game
         [SerializeField] float portraitOrthoSize = 8.2f;
 
         AtmosphereFx _atmosphere;
+        Camera _cam;
+        int _fitScreenW = -1;
+        int _fitScreenH = -1;
+        float _fitAspect = -1f;
 
         public BoardView Board => boardView;
         public GameFlowController Flow => flow;
@@ -33,7 +37,16 @@ namespace CandyCrush.Game
 
         void Start() => Boot();
 
-        void LateUpdate() => FitBackground();
+        void LateUpdate()
+        {
+            // 仅分辨率/宽高比变化时重算，避免每帧写 Transform
+            if (_cam == null) _cam = Camera.main;
+            if (_cam == null) return;
+            if (Screen.width == _fitScreenW && Screen.height == _fitScreenH &&
+                Mathf.Approximately(_cam.aspect, _fitAspect))
+                return;
+            FitBackground();
+        }
 
         void ApplyPortrait()
         {
@@ -43,25 +56,30 @@ namespace CandyCrush.Game
             Screen.autorotateToLandscapeLeft = false;
             Screen.autorotateToLandscapeRight = false;
 
-            var cam = Camera.main;
-            if (cam == null) return;
-            cam.orthographic = true;
-            cam.orthographicSize = portraitOrthoSize;
+            _cam = Camera.main;
+            if (_cam == null) return;
+            _cam.orthographic = true;
+            _cam.orthographicSize = portraitOrthoSize;
             FitBackground();
         }
 
         void FitBackground()
         {
-            var cam = Camera.main;
-            if (background == null || background.sprite == null || cam == null) return;
-            float worldH = cam.orthographicSize * 2f;
-            float worldW = worldH * cam.aspect;
+            if (_cam == null) _cam = Camera.main;
+            if (background == null || background.sprite == null || _cam == null) return;
+
+            _fitScreenW = Screen.width;
+            _fitScreenH = Screen.height;
+            _fitAspect = _cam.aspect;
+
+            float worldH = _cam.orthographicSize * 2f;
+            float worldW = worldH * _cam.aspect;
             var size = background.sprite.bounds.size;
             float scale = Mathf.Max(worldW / size.x, worldH / size.y);
             background.transform.localScale = new Vector3(scale, scale, 1f);
             background.transform.position = new Vector3(
-                cam.transform.position.x,
-                cam.transform.position.y,
+                _cam.transform.position.x,
+                _cam.transform.position.y,
                 background.transform.position.z);
         }
 
