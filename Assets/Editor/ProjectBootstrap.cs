@@ -22,6 +22,7 @@ namespace CandyCrush.EditorTools
         const string ArtRoot = "Assets/Art";
         const string AtlasDir = "Assets/Art/Atlases";
         const string ConfigDir = "Assets/Resources/Configs";
+        const string UiPrefabDir = "Assets/Resources/Prefabs/UI";
         const string ScenePath = "Assets/Scenes/Gameplay.unity";
 
         [MenuItem("CandyCrush/Bootstrap Project")]
@@ -35,6 +36,7 @@ namespace CandyCrush.EditorTools
 
             var catalog = CreateTileCatalog();
             var level = CreateDemoLevelConfig();
+            CreateOrUpdateUiPrefabs(catalog);
             CreateGameplayScene(catalog, level);
 
             EditorBuildSettings.scenes = new[]
@@ -45,6 +47,26 @@ namespace CandyCrush.EditorTools
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("[CandyCrush] Bootstrap complete → open Scenes/Gameplay.unity and Press Play.");
+        }
+
+        [MenuItem("CandyCrush/Rebuild UI Prefabs")]
+        public static void RebuildUiPrefabsMenu()
+        {
+            var goal = EnsureUiPrefabsExist();
+            WirePrefabsIntoOpenOrSavedScene(goal.goal, goal.win);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[CandyCrush] UI prefabs rebuilt → Resources/Prefabs/UI/");
+        }
+
+        /// <summary>确保 GoalHUD / WinPanel 预制体存在于 Resources，供运行时加载。</summary>
+        public static (GoalHUD goal, WinPanel win) EnsureUiPrefabsExist()
+        {
+            EnsureDirs();
+            var catalog = AssetDatabase.LoadAssetAtPath<TileSpriteCatalog>(ConfigDir + "/TileSpriteCatalog.asset");
+            if (catalog == null)
+                catalog = CreateTileCatalog();
+            return CreateOrUpdateUiPrefabs(catalog);
         }
 
         [MenuItem("CandyCrush/Rebuild Sprite Atlases Only")]
@@ -61,8 +83,10 @@ namespace CandyCrush.EditorTools
         {
             Directory.CreateDirectory(AtlasDir);
             Directory.CreateDirectory(ConfigDir);
+            Directory.CreateDirectory(UiPrefabDir);
             Directory.CreateDirectory("Assets/Scenes");
             Directory.CreateDirectory("Assets/Resources/Configs");
+            Directory.CreateDirectory("Assets/Resources/Prefabs/UI");
         }
 
         static void ConfigureAllSprites()
@@ -313,7 +337,7 @@ namespace CandyCrush.EditorTools
             boardSo.FindProperty("boardOrigin").vector2Value = Vector2.zero;
             boardSo.ApplyModifiedPropertiesWithoutUndo();
 
-            // Canvas HUD
+            // 空 Canvas：Goal/Win 由 LevelDirector 运行时实例化预制体
             var canvasGo = new GameObject("Canvas");
             var canvas = canvasGo.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -323,93 +347,7 @@ namespace CandyCrush.EditorTools
             scaler.matchWidthOrHeight = 0.5f;
             canvasGo.AddComponent<GraphicRaycaster>();
 
-            // Goal panel
-            var goalPanel = new GameObject("GoalPanel", typeof(RectTransform));
-            goalPanel.transform.SetParent(canvasGo.transform, false);
-            var goalRt = goalPanel.GetComponent<RectTransform>();
-            goalRt.anchorMin = new Vector2(0.5f, 1f);
-            goalRt.anchorMax = new Vector2(0.5f, 1f);
-            goalRt.pivot = new Vector2(0.5f, 1f);
-            goalRt.anchoredPosition = new Vector2(0f, -40f);
-            goalRt.sizeDelta = new Vector2(420f, 120f);
-
-            var goalImg = goalPanel.AddComponent<Image>();
-            goalImg.sprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{ArtRoot}/Sprites/UI/UIpanel_goal_1.png");
-            goalImg.type = Image.Type.Sliced;
-            goalImg.preserveAspect = false;
-
-            var iconGo = new GameObject("Icon", typeof(RectTransform));
-            iconGo.transform.SetParent(goalPanel.transform, false);
-            var iconRt = iconGo.GetComponent<RectTransform>();
-            iconRt.anchorMin = iconRt.anchorMax = new Vector2(0.28f, 0.5f);
-            iconRt.sizeDelta = new Vector2(72f, 72f);
-            var iconImg = iconGo.AddComponent<Image>();
-            iconImg.sprite = catalog.GetSprite(TileType.Suitcase);
-            iconImg.preserveAspect = true;
-
-            var textGo = new GameObject("Count", typeof(RectTransform));
-            textGo.transform.SetParent(goalPanel.transform, false);
-            var textRt = textGo.GetComponent<RectTransform>();
-            textRt.anchorMin = textRt.anchorMax = new Vector2(0.62f, 0.5f);
-            textRt.sizeDelta = new Vector2(160f, 80f);
-            var sourceFont = AssetDatabase.LoadAssetAtPath<Font>($"{ArtRoot}/Fonts/BPreplay.ttf");
-            var uiText = textGo.AddComponent<Text>();
-            uiText.text = "15";
-            uiText.fontSize = 64;
-            uiText.alignment = TextAnchor.MiddleCenter;
-            uiText.color = new Color(0.32f, 0.2f, 0.12f, 1f);
-            uiText.fontStyle = FontStyle.Bold;
-            uiText.horizontalOverflow = HorizontalWrapMode.Overflow;
-            uiText.verticalOverflow = VerticalWrapMode.Overflow;
-            if (sourceFont != null) uiText.font = sourceFont;
-
-            var goalHud = goalPanel.AddComponent<GoalHUD>();
-            var hudSo = new SerializedObject(goalHud);
-            hudSo.FindProperty("icon").objectReferenceValue = iconImg;
-            hudSo.FindProperty("countText").objectReferenceValue = uiText;
-            hudSo.FindProperty("sourceFont").objectReferenceValue = sourceFont;
-            hudSo.ApplyModifiedPropertiesWithoutUndo();
-
-            // Win panel
-            var winGo = new GameObject("WinPanel", typeof(RectTransform));
-            winGo.transform.SetParent(canvasGo.transform, false);
-            var winRt = winGo.GetComponent<RectTransform>();
-            winRt.anchorMin = Vector2.zero;
-            winRt.anchorMax = Vector2.one;
-            winRt.offsetMin = winRt.offsetMax = Vector2.zero;
-            var winBg = winGo.AddComponent<Image>();
-            winBg.color = new Color(0f, 0f, 0f, 0.45f);
-
-            var greatGo = new GameObject("GreatText", typeof(RectTransform));
-            greatGo.transform.SetParent(winGo.transform, false);
-            var greatRt = greatGo.GetComponent<RectTransform>();
-            greatRt.anchorMin = greatRt.anchorMax = new Vector2(0.5f, 0.72f);
-            greatRt.sizeDelta = new Vector2(600f, 140f);
-            var greatText = greatGo.AddComponent<Text>();
-            greatText.text = "Great";
-            greatText.fontSize = 96;
-            greatText.alignment = TextAnchor.MiddleCenter;
-            greatText.color = new Color(1f, 0.85f, 0.2f);
-            greatText.fontStyle = FontStyle.Bold;
-            greatText.horizontalOverflow = HorizontalWrapMode.Overflow;
-            greatText.verticalOverflow = VerticalWrapMode.Overflow;
-            if (sourceFont != null) greatText.font = sourceFont;
-
-            var winSuitcase = new GameObject("WinSuitcase", typeof(RectTransform));
-            winSuitcase.transform.SetParent(winGo.transform, false);
-            var wsRt = winSuitcase.GetComponent<RectTransform>();
-            wsRt.anchorMin = wsRt.anchorMax = new Vector2(0.5f, 0.5f);
-            wsRt.sizeDelta = new Vector2(160f, 160f);
-            var wsImg = winSuitcase.AddComponent<Image>();
-            wsImg.sprite = catalog.GetSprite(TileType.Suitcase);
-            wsImg.preserveAspect = true;
-
-            var winPanel = winGo.AddComponent<WinPanel>();
-            var winSo = new SerializedObject(winPanel);
-            winSo.FindProperty("root").objectReferenceValue = winGo;
-            winSo.ApplyModifiedPropertiesWithoutUndo();
-            // 保持 Active 以订阅 EventBus；Hide 用 CanvasGroup
-            winPanel.Hide();
+            var uiPrefabs = CreateOrUpdateUiPrefabs(catalog);
 
             // EventSystem
             if (Object.FindObjectOfType<UnityEngine.EventSystems.EventSystem>() == null)
@@ -427,8 +365,9 @@ namespace CandyCrush.EditorTools
             dirSo.FindProperty("levelConfig").objectReferenceValue = level;
             dirSo.FindProperty("catalog").objectReferenceValue = catalog;
             dirSo.FindProperty("boardView").objectReferenceValue = boardView;
-            dirSo.FindProperty("goalHud").objectReferenceValue = goalHud;
-            dirSo.FindProperty("winPanel").objectReferenceValue = winPanel;
+            dirSo.FindProperty("goalHudPrefab").objectReferenceValue = uiPrefabs.goal;
+            dirSo.FindProperty("winPanelPrefab").objectReferenceValue = uiPrefabs.win;
+            dirSo.FindProperty("uiRoot").objectReferenceValue = canvasGo.transform;
             dirSo.FindProperty("atmosphereRoot").objectReferenceValue = boardRoot.transform;
             dirSo.FindProperty("background").objectReferenceValue = bgSr;
             dirSo.FindProperty("flow").objectReferenceValue = flow;
@@ -449,6 +388,63 @@ namespace CandyCrush.EditorTools
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             Debug.Log($"[CandyCrush] Scene saved: {ScenePath}");
+        }
+
+        static (GoalHUD goal, WinPanel win) CreateOrUpdateUiPrefabs(TileSpriteCatalog catalog)
+        {
+            EnsureDirs();
+            var panelSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{ArtRoot}/Sprites/UI/UIpanel_goal_1.png");
+            var font = AssetDatabase.LoadAssetAtPath<Font>($"{ArtRoot}/Fonts/BPreplay.ttf");
+            var suitcase = catalog != null ? catalog.GetSprite(TileType.Suitcase) : null;
+
+            var tempRoot = new GameObject("_UiPrefabBake");
+            try
+            {
+                var goal = GameUiFactory.CreateGoalHud(tempRoot.transform, panelSprite, suitcase, font);
+                var win = GameUiFactory.CreateWinPanel(tempRoot.transform, suitcase, font);
+
+                string goalPath = UiPrefabDir + "/GoalHUD.prefab";
+                string winPath = UiPrefabDir + "/WinPanel.prefab";
+
+                var goalGo = PrefabUtility.SaveAsPrefabAsset(goal.gameObject, goalPath);
+                var winGo = PrefabUtility.SaveAsPrefabAsset(win.gameObject, winPath);
+                if (goalGo == null || winGo == null)
+                    throw new System.Exception("Failed to save UI prefabs.");
+                return (goalGo.GetComponent<GoalHUD>(), winGo.GetComponent<WinPanel>());
+            }
+            finally
+            {
+                Object.DestroyImmediate(tempRoot);
+            }
+        }
+
+        static void WirePrefabsIntoOpenOrSavedScene(GoalHUD goalPrefab, WinPanel winPrefab)
+        {
+            var scene = File.Exists(ScenePath)
+                ? EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single)
+                : default;
+            if (!scene.IsValid()) return;
+
+            // 删除场景内烘焙的 Goal/Win
+            foreach (var hud in Object.FindObjectsOfType<GoalHUD>())
+                Object.DestroyImmediate(hud.gameObject);
+            foreach (var win in Object.FindObjectsOfType<WinPanel>())
+                Object.DestroyImmediate(win.gameObject);
+
+            var director = Object.FindObjectOfType<LevelDirector>();
+            if (director != null)
+            {
+                var dirSo = new SerializedObject(director);
+                dirSo.FindProperty("goalHudPrefab").objectReferenceValue = goalPrefab;
+                dirSo.FindProperty("winPanelPrefab").objectReferenceValue = winPrefab;
+                var canvas = Object.FindObjectOfType<Canvas>();
+                if (canvas != null)
+                    dirSo.FindProperty("uiRoot").objectReferenceValue = canvas.transform;
+                dirSo.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
         }
 
         static void FitSpriteToCamera(SpriteRenderer sr, Camera cam)

@@ -6,20 +6,24 @@ using UnityEngine;
 
 namespace CandyCrush.Game
 {
-    /// <summary>关卡导演：加载配置、初始化棋盘/目标/流程、启动氛围特效。</summary>
+    /// <summary>关卡导演：加载配置、动态加载目标/胜利 UI 预制体、初始化棋盘与流程。</summary>
     public class LevelDirector : MonoBehaviour
     {
         [SerializeField] LevelConfig levelConfig;
         [SerializeField] TileSpriteCatalog catalog;
         [SerializeField] BoardView boardView;
-        [SerializeField] GoalHUD goalHud;
-        [SerializeField] WinPanel winPanel;
+        [Header("UI Prefabs (Resources fallback if empty)")]
+        [SerializeField] GoalHUD goalHudPrefab;
+        [SerializeField] WinPanel winPanelPrefab;
+        [SerializeField] Transform uiRoot;
         [SerializeField] Transform atmosphereRoot;
         [SerializeField] SpriteRenderer background;
         [SerializeField] GameFlowController flow;
         [SerializeField] InputController input;
         [SerializeField] float portraitOrthoSize = 8.2f;
 
+        GoalHUD _goalHud;
+        WinPanel _winPanel;
         Camera _cam;
         int _fitScreenW = -1;
         int _fitScreenH = -1;
@@ -36,7 +40,6 @@ namespace CandyCrush.Game
 
         void LateUpdate()
         {
-            // 仅分辨率/宽高比变化时重算，避免每帧写 Transform
             if (_cam == null) _cam = Camera.main;
             if (_cam == null) return;
             if (Screen.width == _fitScreenW && Screen.height == _fitScreenH &&
@@ -89,26 +92,84 @@ namespace CandyCrush.Game
             }
 
             boardView.Initialize(levelConfig, catalog);
+            SpawnUi();
 
             int suitcases = CountSuitcases(boardView.Model);
-            if (goalHud != null)
-                goalHud.SetIcon(catalog.GetSprite(TileType.Suitcase));
+            if (_goalHud != null)
+                _goalHud.SetIcon(catalog.GetSprite(TileType.Suitcase));
 
             EventBus.Publish(new ObjectiveChangedEvent(Mathf.Min(levelConfig.objectiveCount, suitcases)));
-            if (winPanel != null)
-            {
-                if (!winPanel.gameObject.activeSelf)
-                    winPanel.gameObject.SetActive(true);
-                winPanel.Hide();
-            }
+            if (_winPanel != null)
+                _winPanel.Hide();
 
             if (atmosphereRoot == null) atmosphereRoot = transform;
             AtmosphereFx.CreateDefault(atmosphereRoot);
 
-            flow.Bind(boardView, goalHud, winPanel);
+            flow.Bind(boardView, _goalHud, _winPanel);
             if (input != null) input.Bind(boardView, flow);
 
             flow.BeginLevel(levelConfig, suitcases);
+        }
+
+        void SpawnUi()
+        {
+            ClearBakedUi();
+            GameUiFactory.EnsureEventSystem();
+            var canvas = GameUiFactory.EnsureOverlayCanvas();
+            var parent = uiRoot != null ? uiRoot : canvas.transform;
+
+            _goalHud = SpawnGoalHud(parent);
+            _winPanel = SpawnWinPanel(parent);
+        }
+
+        /// <summary>清掉场景里旧的烘焙 Goal/Win，避免与动态实例重复。</summary>
+        void ClearBakedUi()
+        {
+            foreach (var hud in FindObjectsOfType<GoalHUD>())
+            {
+                if (hud == null) continue;
+                hud.gameObject.SetActive(false); // 立刻退订 EventBus
+                Destroy(hud.gameObject);
+            }
+            foreach (var win in FindObjectsOfType<WinPanel>())
+            {
+                if (win == null) continue;
+                win.gameObject.SetActive(false);
+                Destroy(win.gameObject);
+            }
+        }
+
+        GoalHUD SpawnGoalHud(Transform parent)
+        {
+            var prefab = goalHudPrefab;
+            if (prefab == null)
+                prefab = Resources.Load<GoalHUD>(GameUiFactory.GoalHudResourcePath);
+
+            if (prefab != null)
+                return Instantiate(prefab, parent);
+
+            Debug.LogWarning("[LevelDirector] GoalHUD prefab missing, building at runtime. Run CandyCrush/Rebuild UI Prefabs.");
+            return GameUiFactory.CreateGoalHud(
+                parent,
+                null,
+                catalog != null ? catalog.GetSprite(TileType.Suitcase) : null,
+                null);
+        }
+
+        WinPanel SpawnWinPanel(Transform parent)
+        {
+            var prefab = winPanelPrefab;
+            if (prefab == null)
+                prefab = Resources.Load<WinPanel>(GameUiFactory.WinPanelResourcePath);
+
+            if (prefab != null)
+                return Instantiate(prefab, parent);
+
+            Debug.LogWarning("[LevelDirector] WinPanel prefab missing, building at runtime. Run CandyCrush/Rebuild UI Prefabs.");
+            return GameUiFactory.CreateWinPanel(
+                parent,
+                catalog != null ? catalog.GetSprite(TileType.Suitcase) : null,
+                null);
         }
 
         static int CountSuitcases(BoardModel model)

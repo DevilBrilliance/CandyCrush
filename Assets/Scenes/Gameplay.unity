@@ -621,8 +621,9 @@ MonoBehaviour:
   levelConfig: {fileID: 11400000, guid: 3770f51547785624893ff3d4aea77037, type: 2}
   catalog: {fileID: 11400000, guid: 2bc636a5917de0646bc4f52d3414b0b2, type: 2}
   boardView: {fileID: 840395387}
-  goalHud: {fileID: 1224208211}
-  winPanel: {fileID: 1811213842}
+  goalHudPrefab: {fileID: 3228060910954194699, guid: 604a587a1ab140e48ba04194c83c705b, type: 3}
+  winPanelPrefab: {fileID: 192503109011277927, guid: d394ca32efbb1274aac9650cea605c50, type: 3}
+  uiRoot: {fileID: 1324702135}
   atmosphereRoot: {fileID: 840395388}
   background: {fileID: 2116280853}
   flow: {fileID: 0}
@@ -753,7 +754,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1224208208
 RectTransform:
   m_ObjectHideFlags: 0
@@ -858,9 +859,7 @@ RectTransform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1224208208}
-  - {fileID: 1811213845}
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}

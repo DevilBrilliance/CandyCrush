@@ -21,6 +21,14 @@ namespace CandyCrush.View
 
         void OnObjectiveChanged(ObjectiveChangedEvent evt) => SetRemaining(evt.Remaining);
 
+        public void Bind(Image iconImage, Text count, Font font)
+        {
+            icon = iconImage;
+            countText = count;
+            sourceFont = font;
+            EnsureCountVisible();
+        }
+
         void EnsureCountVisible()
         {
             if (countText == null) return;
