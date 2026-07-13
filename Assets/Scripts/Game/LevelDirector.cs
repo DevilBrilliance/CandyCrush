@@ -58,9 +58,8 @@ namespace CandyCrush.Game
 
             if (winPanel != null) winPanel.Hide();
 
-            var snowSprite = catalog.GetSprite(TileType.Green);
             if (atmosphereRoot == null) atmosphereRoot = transform;
-            _atmosphere = AtmosphereFx.CreateDefault(atmosphereRoot, snowSprite);
+            _atmosphere = AtmosphereFx.CreateDefault(atmosphereRoot);
         }
 
         public void NotifySuitcaseCollected(int amount = 1)
