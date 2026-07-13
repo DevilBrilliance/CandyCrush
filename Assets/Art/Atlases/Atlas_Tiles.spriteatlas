@@ -1,0 +1,110 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!687078895 &1
+SpriteAtlas:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Atlas_Tiles
+  m_EditorData:
+    serializedVersion: 2
+    textureSettings:
+      serializedVersion: 2
+      anisoLevel: 0
+      compressionQuality: 0
+      maxTextureSize: 0
+      textureCompression: 0
+      filterMode: 1
+      generateMipMaps: 0
+      readable: 0
+      crunchedCompression: 0
+      sRGB: 1
+    platformSettings:
+    - serializedVersion: 3
+      m_BuildTarget: DefaultTexturePlatform
+      m_MaxTextureSize: 2048
+      m_ResizeAlgorithm: 0
+      m_TextureFormat: -1
+      m_TextureCompression: 1
+      m_CompressionQuality: 50
+      m_CrunchedCompression: 0
+      m_AllowsAlphaSplitting: 0
+      m_Overridden: 0
+      m_IgnorePlatformSupport: 0
+      m_AndroidETC2FallbackOverride: 0
+      m_ForceMaximumCompressionQuality_BC6H_BC7: 0
+    packingSettings:
+      serializedVersion: 2
+      padding: 4
+      blockOffset: 0
+      allowAlphaSplitting: 0
+      enableRotation: 0
+      enableTightPacking: 0
+      enableAlphaDilation: 0
+    secondaryTextureSettings: {}
+    variantMultiplier: 1
+    packables:
+    - {fileID: 102900000, guid: 47dd159fb4c44fbe9a34a33d2ca9de9d, type: 3}
+    - {fileID: 102900000, guid: af4aebbf11fc4f859be1e68f424e9cd8, type: 3}
+    bindAsDefault: 1
+    isAtlasV2: 0
+    cachedData: {fileID: 0}
+    packedSpriteRenderDataKeys:
+    - 116fbb00703f47db8b8d3d07e1c5edea: 21300000
+    - f03341f0c24040388c1e1290a4b59b4e: 21300000
+    - f0b8308158d2453c936fd0c5a84d758f: 21300000
+    - d78f5d91b0ba42288a5e09f786c24605: 21300000
+    - 676cbfd1f5724836ac6de835d93717cc: 21300000
+    - 7255fb2427fd4f1a8cce72c7fd0738c5: 21300000
+    - 2ce8e344a38d4812bd89b518042ec9b8: 21300000
+    - d1acc5946a5d4c53a6391e395c76cc08: 21300000
+    - bbcd786500444a2cb9c778c9a1578425: 21300000
+    - 75003ab65e694abb92f12d03b6cbec82: 21300000
+    - 196a4f38cc3841dabe87822492a6f1f3: 21300000
+    - 083368aa121447f8a0773fed721c660e: 21300000
+    - 7be1d82b425948e0b53e770091876ca9: 21300000
+    - 1fb866cc35544bdd988dd36ca7f77dcf: 21300000
+    - 6aeadf0d2bc344c992af781740636eaf: 21300000
+    - eaed0e2db073423788233d089185d728: 21300000
+    - 331eb92e58f546d3b58e304918bde811: 21300000
+  m_MasterAtlas: {fileID: 0}
+  m_PackedSprites:
+  - {fileID: 21300000, guid: 116fbb00703f47db8b8d3d07e1c5edea, type: 3}
+  - {fileID: 21300000, guid: f03341f0c24040388c1e1290a4b59b4e, type: 3}
+  - {fileID: 21300000, guid: f0b8308158d2453c936fd0c5a84d758f, type: 3}
+  - {fileID: 21300000, guid: d78f5d91b0ba42288a5e09f786c24605, type: 3}
+  - {fileID: 21300000, guid: 676cbfd1f5724836ac6de835d93717cc, type: 3}
+  - {fileID: 21300000, guid: 7255fb2427fd4f1a8cce72c7fd0738c5, type: 3}
+  - {fileID: 21300000, guid: 2ce8e344a38d4812bd89b518042ec9b8, type: 3}
+  - {fileID: 21300000, guid: d1acc5946a5d4c53a6391e395c76cc08, type: 3}
+  - {fileID: 21300000, guid: bbcd786500444a2cb9c778c9a1578425, type: 3}
+  - {fileID: 21300000, guid: 75003ab65e694abb92f12d03b6cbec82, type: 3}
+  - {fileID: 21300000, guid: 196a4f38cc3841dabe87822492a6f1f3, type: 3}
+  - {fileID: 21300000, guid: 083368aa121447f8a0773fed721c660e, type: 3}
+  - {fileID: 21300000, guid: 7be1d82b425948e0b53e770091876ca9, type: 3}
+  - {fileID: 21300000, guid: 1fb866cc35544bdd988dd36ca7f77dcf, type: 3}
+  - {fileID: 21300000, guid: 6aeadf0d2bc344c992af781740636eaf, type: 3}
+  - {fileID: 21300000, guid: eaed0e2db073423788233d089185d728, type: 3}
+  - {fileID: 21300000, guid: 331eb92e58f546d3b58e304918bde811, type: 3}
+  m_PackedSpriteNamesToIndex:
+  - candy_1_6_1
+  - candy_snow_normal1
+  - candy_bg_01
+  - candy_1_4_1
+  - candy_1_3_1
+  - boost_candy_rainbow
+  - candy_1_1_1
+  - boost_candy_bomb
+  - boost_candy_hv
+  - candy_bg_01
+  - tile_suitcase
+  - candy_snow_normal3
+  - candy_snow_normal4
+  - candy_1_2_1
+  - candy_1_5_1
+  - bg_gua6
+  - candy_snow_normal2
+  m_RenderDataMap: {}
+  m_Tag: Atlas_Tiles
+  m_IsVariant: 0
