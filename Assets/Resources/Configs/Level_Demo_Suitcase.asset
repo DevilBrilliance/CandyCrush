@@ -15,7 +15,7 @@ MonoBehaviour:
   rows: 8
   cols: 9
   objectiveType: 0
-  objectiveCount: 15
+  objectiveCount: 33
   spawnWeights: 01000000010000000100000001000000
   enableColorBall: 0
   initialBoard: 

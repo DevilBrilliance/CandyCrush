@@ -250,7 +250,7 @@ namespace CandyCrush.EditorTools
             level.rows = 8;
             level.cols = 9;
             level.objectiveType = ObjectiveType.CollectSuitcase;
-            level.objectiveCount = 15;
+            level.objectiveCount = 33;
             level.spawnWeights = new[] { 1, 1, 1, 1 };
             level.enableColorBall = false;
             level.initialBoard = null; // 运行时用 DemoLayouts

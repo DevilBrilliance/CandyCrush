@@ -1,3 +1,4 @@
+using System;
 using CandyCrush.Common;
 using CandyCrush.Data;
 using UnityEngine;
@@ -103,63 +104,53 @@ namespace CandyCrush.View
         }
     }
 
-    /// <summary>参考视频风格的初始布局：上半区四色混排，下半区行李箱。</summary>
+    /// <summary>参考视频/图一的初始布局：上 4 行四色，第 5 行两侧箱+中间三色，底 3 行全箱（共 33 箱）。</summary>
     public static class DemoLayouts
     {
+        // R=红帽 Y=黄铃 B=蓝枕 G=绿叶 S=行李箱 — 严格对齐参考截图
+        static readonly TileType[,] VideoBoard8x9 =
+        {
+            // row 0: 叶 枕 帽 帽 铃 叶 铃 枕 帽
+            { TileType.Green, TileType.Blue, TileType.Red, TileType.Red, TileType.Yellow, TileType.Green, TileType.Yellow, TileType.Blue, TileType.Red },
+            // row 1: 叶 铃 帽 铃 枕 铃 铃 帽 枕
+            { TileType.Green, TileType.Yellow, TileType.Red, TileType.Yellow, TileType.Blue, TileType.Yellow, TileType.Yellow, TileType.Red, TileType.Blue },
+            // row 2: 帽 枕 铃 叶 帽 叶 叶 铃 叶
+            { TileType.Red, TileType.Blue, TileType.Yellow, TileType.Green, TileType.Red, TileType.Green, TileType.Green, TileType.Yellow, TileType.Green },
+            // row 3: 枕 叶 叶 枕 叶 枕 铃 帽 铃
+            { TileType.Blue, TileType.Green, TileType.Green, TileType.Blue, TileType.Green, TileType.Blue, TileType.Yellow, TileType.Red, TileType.Yellow },
+            // row 4: 箱箱箱 叶铃叶 箱箱箱
+            { TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Green, TileType.Yellow, TileType.Green, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase },
+            // row 5-7: 全箱
+            { TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase },
+            { TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase },
+            { TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase, TileType.Suitcase },
+        };
+
         public static TileType[,] BuildVideoStyleBoard(int rows, int cols)
         {
             var layout = new TileType[rows, cols];
-            var normals = new[] { TileType.Red, TileType.Yellow, TileType.Blue, TileType.Green };
-            int suitcaseStartRow = Mathf.Max(1, rows / 2);
+            int copyRows = Math.Min(rows, VideoBoard8x9.GetLength(0));
+            int copyCols = Math.Min(cols, VideoBoard8x9.GetLength(1));
 
-            // 确定性伪随机，避免开局三连（取正数再取模，避免溢出产生负下标）
-            int seed = 20260525;
+            for (int r = 0; r < copyRows; r++)
+            for (int c = 0; c < copyCols; c++)
+                layout[r, c] = VideoBoard8x9[r, c];
+
+            // 尺寸不一致时：多出的行填行李箱，多出的列用四色补齐（避免三连）
+            var normals = new[] { TileType.Red, TileType.Yellow, TileType.Blue, TileType.Green };
             for (int r = 0; r < rows; r++)
             for (int c = 0; c < cols; c++)
             {
-                if (r >= suitcaseStartRow)
+                if (r < copyRows && c < copyCols) continue;
+                if (r >= 4)
                 {
                     layout[r, c] = TileType.Suitcase;
                     continue;
                 }
-
-                seed = Next(seed);
-                TileType pick = normals[PositiveMod(seed, normals.Length)];
-                // 避免横向三连
-                if (c >= 2 && layout[r, c - 1] == pick && layout[r, c - 2] == pick)
-                    pick = normals[(ArrayIndex(normals, pick) + 1) % normals.Length];
-                // 避免纵向三连
-                if (r >= 2 && layout[r - 1, c] == pick && layout[r - 2, c] == pick)
-                    pick = normals[(ArrayIndex(normals, pick) + 1) % normals.Length];
-                layout[r, c] = pick;
-            }
-
-            // 在分界行混入若干箱子（贴近视频）
-            if (suitcaseStartRow > 0)
-            {
-                int mid = suitcaseStartRow - 1;
-                for (int c = 0; c < cols; c++)
-                {
-                    if (c % 2 == 0) layout[mid, c] = TileType.Suitcase;
-                }
+                layout[r, c] = normals[(r + c) % normals.Length];
             }
 
             return layout;
-        }
-
-        static int Next(int s) => unchecked(s * 1103515245 + 12345);
-
-        static int PositiveMod(int value, int modulo)
-        {
-            int m = value % modulo;
-            return m < 0 ? m + modulo : m;
-        }
-
-        static int ArrayIndex(TileType[] arr, TileType v)
-        {
-            for (int i = 0; i < arr.Length; i++)
-                if (arr[i] == v) return i;
-            return 0;
         }
     }
 }
