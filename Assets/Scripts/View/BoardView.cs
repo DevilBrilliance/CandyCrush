@@ -178,7 +178,7 @@ namespace CandyCrush.View
             yield return AnimateSwap(r0, c0, r1, c1);
         }
 
-        public IEnumerator PlayCascadeStep(CascadeStepResult step)
+        public IEnumerator PlayCascadeStep(CascadeStepResult step, GoalHUD goalHud = null, int remainingAfter = 0)
         {
             if (step == null || !step.HadWork) yield break;
 
@@ -225,7 +225,7 @@ namespace CandyCrush.View
             foreach (var s in shrinking)
                 if (s.view != null) s.view.transform.localScale = s.toScale;
 
-            // --- 消除碎裂 + 同步下落（缩放完后才开始）---
+            // --- 碎裂 + 下落 + 收箱同时开始 ---
             var toDestroy = new List<TileView>();
             for (int i = 0; i < step.Cleared.Count; i++)
             {
@@ -243,6 +243,23 @@ namespace CandyCrush.View
                 _views[p.Row, p.Col] = null;
                 v.gameObject.SetActive(false);
                 toDestroy.Add(v);
+            }
+
+            if (step.CollectedSuitcases.Count > 0)
+            {
+                if (goalHud != null)
+                {
+                    StartCoroutine(CollectFx.FlySuitcases(
+                        step.CollectedSuitcases,
+                        this,
+                        goalHud,
+                        catalog,
+                        remainingAfter));
+                }
+                else
+                {
+                    EventBus.Publish(new ObjectiveChangedEvent(remainingAfter));
+                }
             }
 
             var falling = new List<(TileView view, Vector3 from, Vector3 to)>();
@@ -295,7 +312,7 @@ namespace CandyCrush.View
                 spawning.Add((v, start, dest));
             }
 
-            // 碎裂与下落同时进行；至少等 clearDur，保证碎裂有可见首帧
+            // 碎裂持续播的同时做下落；至少撑满 clearDur，保证碎裂首帧可见
             float animDur = Mathf.Max(fallDur, clearDur);
             t = 0f;
             while (t < animDur)

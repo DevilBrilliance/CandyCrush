@@ -115,26 +115,7 @@ namespace CandyCrush.Game
 
                 if (!step.HadWork) break;
 
-                if (step.CollectedSuitcases.Count > 0)
-                {
-                    if (goalHud != null && boardView != null)
-                    {
-                        // 格心立刻摘掉箱子视图，副本飞向 UI；计数经 EventBus 更新
-                        boardView.ConsumeViews(step.CollectedSuitcases);
-                        yield return CandyCrush.Vfx.CollectFx.FlySuitcases(
-                            step.CollectedSuitcases,
-                            boardView,
-                            goalHud,
-                            boardView.Catalog,
-                            _objective.Remaining);
-                    }
-                    else
-                    {
-                        EventBus.Publish(new ObjectiveChangedEvent(_objective.Remaining));
-                    }
-                }
-
-                yield return boardView.PlayCascadeStep(step);
+                yield return boardView.PlayCascadeStep(step, goalHud, _objective.Remaining);
 
                 if (_objective.IsComplete)
                 {
