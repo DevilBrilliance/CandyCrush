@@ -133,10 +133,10 @@ namespace CandyCrush.Vfx
             switch (a.Type)
             {
                 case TileType.RocketH:
-                    yield return RocketSweep(origin, true, board.Model.Cols, cell, board.transform);
+                    yield return RocketSweep(a.Origin, true, board);
                     break;
                 case TileType.RocketV:
-                    yield return RocketSweep(origin, false, board.Model.Rows, cell, board.transform);
+                    yield return RocketSweep(a.Origin, false, board);
                     break;
                 case TileType.Propeller:
                     if (a.HasTarget)
@@ -156,25 +156,46 @@ namespace CandyCrush.Vfx
             }
         }
 
-        IEnumerator RocketSweep(Vector3 origin, bool horizontal, int count, float cell, Transform board)
+        IEnumerator RocketSweep(GridPos originCell, bool horizontal, BoardView board)
         {
+            float cell = board.CellSizeSafe();
             float dur = Mathf.Max(0.28f, rocketDuration);
-            float half = Mathf.Max(cell, (count - 1) * 0.5f * cell);
-            Vector3 dirA = horizontal ? Vector3.right : Vector3.up;
-            Vector3 dirB = -dirA;
+            int row = originCell.Row;
+            int col = originCell.Col;
+            int rows = board.Model.Rows;
+            int cols = board.Model.Cols;
+
+            // 两端终点：扫到该行/列的棋盘边界格（左右/上下距离可不等）
+            Vector3 origin = board.transform.TransformPoint(board.CellLocal(row, col));
+            Vector3 endA, endB; // A=右/上，B=左/下
+            if (horizontal)
+            {
+                endA = board.transform.TransformPoint(board.CellLocal(row, cols - 1));
+                endB = board.transform.TransformPoint(board.CellLocal(row, 0));
+            }
+            else
+            {
+                endA = board.transform.TransformPoint(board.CellLocal(0, col));           // 上（row0）
+                endB = board.transform.TransformPoint(board.CellLocal(rows - 1, col));  // 下
+            }
+
+            Vector3 dirA = (endA - origin);
+            Vector3 dirB = (endB - origin);
+            float lenA = dirA.magnitude;
+            float lenB = dirB.magnitude;
+            if (lenA > 0.0001f) dirA /= lenA; else dirA = horizontal ? Vector3.right : Vector3.up;
+            if (lenB > 0.0001f) dirB /= lenB; else dirB = -dirA;
 
             // 起爆闪光
             SpawnFadingParticle(origin, _flash, cell * 1.6f, new Color(1f, 0.95f, 0.55f, 1f), 0.28f, additive: true);
             SpawnFadingParticle(origin, _starlight, cell * 2.2f, new Color(1f, 0.85f, 0.35f, 1f), 0.32f, additive: true);
 
-            // 粗光带（底）+ 亮芯（上）
             var beamSoft = MakeSprite("RocketBeamSoft", _glow, origin, SortingOrder + 10, additive: true);
             Tint(beamSoft, new Color(1f, 0.75f, 0.25f, 0.95f));
             var beamCore = MakeSprite("RocketBeamCore", _flash, origin, SortingOrder + 11, additive: true);
             Tint(beamCore, new Color(1f, 0.98f, 0.85f, 1f));
 
-            // 双向箭头头
-            var headA = MakeSprite("RocketHeadA", horizontal || dirA.y > 0 ? _arrowUp : _arrowDown, origin, SortingOrder + 13);
+            var headA = MakeSprite("RocketHeadA", _arrowUp, origin, SortingOrder + 13);
             var headB = MakeSprite("RocketHeadB", _arrowDown, origin, SortingOrder + 13);
             if (horizontal)
             {
@@ -194,7 +215,6 @@ namespace CandyCrush.Vfx
             if (headA != null) { Tint(headA, Color.white); headA.transform.localScale = Vector3.one * headScale; }
             if (headB != null) { Tint(headB, Color.white); headB.transform.localScale = Vector3.one * headScale; }
 
-            // 箭头拖尾光晕
             var glowA = MakeSprite("RocketGlowA", _glow, origin, SortingOrder + 12, additive: true);
             var glowB = MakeSprite("RocketGlowB", _glow, origin, SortingOrder + 12, additive: true);
             Tint(glowA, new Color(1f, 0.7f, 0.2f, 1f));
@@ -208,11 +228,11 @@ namespace CandyCrush.Vfx
                 t += Time.deltaTime;
                 float u = Mathf.Clamp01(t / dur);
                 float ease = 1f - Mathf.Pow(1f - u, 2.4f);
-                float dist = Mathf.Lerp(0f, half + cell * 0.35f, ease);
                 float pulse = 0.55f + 0.45f * Mathf.Sin(u * Mathf.PI);
 
-                Vector3 posA = origin + dirA * dist;
-                Vector3 posB = origin + dirB * dist;
+                // 各自扫到对应边界，不再左右等距
+                Vector3 posA = Vector3.Lerp(origin, endA, ease);
+                Vector3 posB = Vector3.Lerp(origin, endB, ease);
                 if (headA != null) headA.transform.position = posA;
                 if (headB != null) headB.transform.position = posB;
                 if (glowA != null)
@@ -226,12 +246,14 @@ namespace CandyCrush.Vfx
                     glowB.transform.localScale = Vector3.one * (cell * (1.0f + 0.35f * pulse));
                 }
 
-                float len = dist * 2f + cell * 0.85f;
+                // 光带覆盖已扫过区段（两端箭头之间）
+                Vector3 mid = (posA + posB) * 0.5f;
+                float len = Vector3.Distance(posA, posB) + cell * 0.5f;
                 float thickSoft = cell * (0.85f + 0.35f * pulse);
                 float thickCore = cell * (0.38f + 0.18f * pulse);
                 if (beamSoft != null)
                 {
-                    beamSoft.transform.position = origin;
+                    beamSoft.transform.position = mid;
                     beamSoft.transform.localScale = horizontal
                         ? new Vector3(len, thickSoft, 1f)
                         : new Vector3(thickSoft, len, 1f);
@@ -241,7 +263,7 @@ namespace CandyCrush.Vfx
                 }
                 if (beamCore != null)
                 {
-                    beamCore.transform.position = origin;
+                    beamCore.transform.position = mid;
                     beamCore.transform.localScale = horizontal
                         ? new Vector3(len, thickCore, 1f)
                         : new Vector3(thickCore, len, 1f);
@@ -250,7 +272,6 @@ namespace CandyCrush.Vfx
                     beamCore.color = c;
                 }
 
-                // 沿途密集火花 + 烟雾
                 if (Random.value < 0.85f)
                 {
                     SpawnFadingParticle(posA, _star, cell * Random.Range(0.28f, 0.5f),
@@ -269,9 +290,7 @@ namespace CandyCrush.Vfx
                 yield return null;
             }
 
-            // 收尾整条闪一下
-            SpawnFadingParticle(origin, _flash,
-                horizontal ? cell * count * 0.35f : cell * 1.4f,
+            SpawnFadingParticle((endA + endB) * 0.5f, _flash, cell * 1.4f,
                 new Color(1f, 0.95f, 0.6f, 1f), 0.22f, additive: true);
 
             if (headA != null) Destroy(headA.gameObject);
