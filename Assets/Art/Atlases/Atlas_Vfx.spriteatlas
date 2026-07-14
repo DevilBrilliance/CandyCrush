@@ -59,7 +59,9 @@ SpriteAtlas:
     - 9bc6efd22ffd9f5418815c01dbd10d7a: 21300000
     - 1e7ee0f21fd09f3458d9fbb1e33f8b7b: 21300000
     - 4365ba0345dd4808aad077d418716a70: 21300000
+    - 14d0a013877149eba3457eb32cd37f00: 21300000
     - 05706bb3dbb35d54395e46e1c02cccfc: 21300000
+    - c0e4510440e246088ce0ea5583982823: 21300000
     - 76578554c4d5d0f4d86df3f946ce85b0: 21300000
     - 5100cd546b0b4eddaac5b44d5c6e2352: 21300000
     - d20524351f6d456c8af05537e4849055: 21300000
@@ -79,11 +81,14 @@ SpriteAtlas:
     - 23fff319663bc4740857bb0627597858: 21300000
     - be17d7396016434e86f960d4bc77febf: 21300000
     - 5ee96179129c7db42bc926a9befb7dfa: 21300000
+    - fd5e36b95a704929a22d5af0702e3569: 21300000
     - 7ba01c8acd8c7dd48b92f1443c84cd83: 21300000
     - 659d117bba4145bc8e4d90b1871a57db: 21300000
     - b57c668b63640304783e603c4c977a70: 21300000
+    - 20b98ebb035a4595ae402602a1ab587f: 21300000
     - 9862c88c1d684681b1b73eee42cebd8a: 21300000
     - 59267a0d9bc2489dbc14281bb80995a9: 21300000
+    - f6f8906dad7b472384ead680fd053673: 21300000
     - 9c6c83adbfa7bab4daa40a8752c7159e: 21300000
     - 7b513e1e59cb04a44833012a41625198: 21300000
     - feb5cd5ee932d744cb692dfa023a956e: 21300000
@@ -98,7 +103,9 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 9bc6efd22ffd9f5418815c01dbd10d7a, type: 3}
   - {fileID: 21300000, guid: 1e7ee0f21fd09f3458d9fbb1e33f8b7b, type: 3}
   - {fileID: 21300000, guid: 4365ba0345dd4808aad077d418716a70, type: 3}
+  - {fileID: 21300000, guid: 14d0a013877149eba3457eb32cd37f00, type: 3}
   - {fileID: 21300000, guid: 05706bb3dbb35d54395e46e1c02cccfc, type: 3}
+  - {fileID: 21300000, guid: c0e4510440e246088ce0ea5583982823, type: 3}
   - {fileID: 21300000, guid: 76578554c4d5d0f4d86df3f946ce85b0, type: 3}
   - {fileID: 21300000, guid: 5100cd546b0b4eddaac5b44d5c6e2352, type: 3}
   - {fileID: 21300000, guid: d20524351f6d456c8af05537e4849055, type: 3}
@@ -118,11 +125,14 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 23fff319663bc4740857bb0627597858, type: 3}
   - {fileID: 21300000, guid: be17d7396016434e86f960d4bc77febf, type: 3}
   - {fileID: 21300000, guid: 5ee96179129c7db42bc926a9befb7dfa, type: 3}
+  - {fileID: 21300000, guid: fd5e36b95a704929a22d5af0702e3569, type: 3}
   - {fileID: 21300000, guid: 7ba01c8acd8c7dd48b92f1443c84cd83, type: 3}
   - {fileID: 21300000, guid: 659d117bba4145bc8e4d90b1871a57db, type: 3}
   - {fileID: 21300000, guid: b57c668b63640304783e603c4c977a70, type: 3}
+  - {fileID: 21300000, guid: 20b98ebb035a4595ae402602a1ab587f, type: 3}
   - {fileID: 21300000, guid: 9862c88c1d684681b1b73eee42cebd8a, type: 3}
   - {fileID: 21300000, guid: 59267a0d9bc2489dbc14281bb80995a9, type: 3}
+  - {fileID: 21300000, guid: f6f8906dad7b472384ead680fd053673, type: 3}
   - {fileID: 21300000, guid: 9c6c83adbfa7bab4daa40a8752c7159e, type: 3}
   - {fileID: 21300000, guid: 7b513e1e59cb04a44833012a41625198, type: 3}
   - {fileID: 21300000, guid: feb5cd5ee932d744cb692dfa023a956e, type: 3}
@@ -136,7 +146,9 @@ SpriteAtlas:
   - boost_other_dot
   - efx_smoke_2
   - particle_die_candy_1_1_01
+  - particle_die_candy_flower_small_1
   - particle_smoke
+  - boost_candy_propeller
   - efx_smoke_3
   - particle_die_candy_1_1_04
   - particle_die_candy_1_2_02
@@ -156,11 +168,14 @@ SpriteAtlas:
   - efx_Rainbowefx_03
   - particle_die_candy_1_3_02
   - particle_die_candy_27
+  - particle_die_candy_flower_small
   - efx_candy_27_4
   - particle_die_candy_1_3_03
   - efx_smoke_1
+  - particle_die_candy_flower_small_2
   - particle_die_candy_1_4_04
   - particle_die_candy_1_1_02
+  - particle_other_X_cross
   - particle_die_star_2
   - particle_die_star_1
   - UIpanel_starlight

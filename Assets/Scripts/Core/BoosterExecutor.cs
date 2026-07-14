@@ -16,7 +16,7 @@ namespace CandyCrush.Core
         };
     }
 
-    /// <summary>道具效果：火箭清行/列、炸弹 5×5、螺旋桨追箱、彩球同色。</summary>
+    /// <summary>道具效果：火箭清行/列、炸弹 5×5、螺旋桨十字清格后追箱、彩球同色。</summary>
     public static class BoosterExecutor
     {
         public static List<GridPos> GetClearCells(BoardModel board, int row, int col, TileType booster, TileType partnerColor)
@@ -41,9 +41,16 @@ namespace CandyCrush.Core
                         if (board.InBounds(r, c)) cells.Add(new GridPos(r, c));
                     break;
                 case TileType.Propeller:
-                    cells.Add(new GridPos(row, col));
+                    // 十字花：自身 + 上下左右（越界跳过）
+                    AddUnique(cells, new GridPos(row, col));
+                    TryAdd(board, cells, row - 1, col);
+                    TryAdd(board, cells, row + 1, col);
+                    TryAdd(board, cells, row, col - 1);
+                    TryAdd(board, cells, row, col + 1);
+                    // 再追箱（或其它目标格）
                     var target = FindPropellerTarget(board, row, col);
-                    if (target.HasValue) cells.Add(target.Value);
+                    if (target.HasValue)
+                        AddUnique(cells, target.Value);
                     break;
                 case TileType.ColorBall:
                     var color = TileTypeUtil.IsNormal(partnerColor) ? partnerColor : FindAnyNormal(board);
@@ -61,22 +68,37 @@ namespace CandyCrush.Core
             return cells;
         }
 
-        static GridPos? FindPropellerTarget(BoardModel board, int selfR, int selfC)
+        public static GridPos? FindPropellerTarget(BoardModel board, int selfR, int selfC)
         {
-            // 优先行李箱
+            // 优先行李箱（不在十字邻格内也要追）
             GridPos? bestSuit = null;
             int bestDist = int.MaxValue;
             for (int r = 0; r < board.Rows; r++)
             for (int c = 0; c < board.Cols; c++)
             {
                 if (r == selfR && c == selfC) continue;
+                // 十字邻格已由十字炸掉，优先追更远的箱
                 if (board.Get(r, c) != TileType.Suitcase) continue;
                 int d = Abs(r - selfR) + Abs(c - selfC);
                 if (d < bestDist) { bestDist = d; bestSuit = new GridPos(r, c); }
             }
             if (bestSuit.HasValue) return bestSuit;
 
-            // 其次任意非空非自身
+            // 其次任意非空非自身（避开十字邻格优先找更远）
+            GridPos? bestOther = null;
+            bestDist = int.MaxValue;
+            for (int r = 0; r < board.Rows; r++)
+            for (int c = 0; c < board.Cols; c++)
+            {
+                if (r == selfR && c == selfC) continue;
+                if (board.Get(r, c) == TileType.Empty) continue;
+                int d = Abs(r - selfR) + Abs(c - selfC);
+                if (d <= 1) continue; // 跳过十字已覆盖的格
+                if (d < bestDist) { bestDist = d; bestOther = new GridPos(r, c); }
+            }
+            if (bestOther.HasValue) return bestOther;
+
+            // 最后退回邻格非空
             for (int r = 0; r < board.Rows; r++)
             for (int c = 0; c < board.Cols; c++)
             {
@@ -85,6 +107,18 @@ namespace CandyCrush.Core
                     return new GridPos(r, c);
             }
             return null;
+        }
+
+        static void AddUnique(List<GridPos> cells, GridPos p)
+        {
+            for (int i = 0; i < cells.Count; i++)
+                if (cells[i].Equals(p)) return;
+            cells.Add(p);
+        }
+
+        static void TryAdd(BoardModel board, List<GridPos> cells, int r, int c)
+        {
+            if (board.InBounds(r, c)) AddUnique(cells, new GridPos(r, c));
         }
 
         static TileType FindAnyNormal(BoardModel board)

@@ -16,7 +16,7 @@ namespace CandyCrush.Vfx
         public const int SortingOrder = 120;
 
         [SerializeField] float rocketDuration = 0.52f;
-        [SerializeField] float propellerDuration = 0.48f;
+        [SerializeField] float propellerDuration = 0.85f;
         [SerializeField] float bombDuration = 0.62f;
         [SerializeField] float colorBallDuration = 0.4f;
         [SerializeField] float spawnPopDuration = 0.28f;
@@ -32,6 +32,10 @@ namespace CandyCrush.Vfx
         Sprite _bombShard;
         Sprite _arrowUp;
         Sprite _arrowDown;
+        Sprite _propeller;
+        Sprite _flower;
+        Sprite _flower2;
+        Sprite _xCross;
         static Material _mat;
         static Material _additiveMat;
         static Texture2D _whiteTex;
@@ -62,6 +66,10 @@ namespace CandyCrush.Vfx
             _bombShard = Load("particle_die_candy_27") ?? _star;
             _arrowUp = Load("efx_arrow_2") ?? _star;
             _arrowDown = Load("efx_arrow_1") ?? _arrowUp;
+            _propeller = Load("boost_candy_propeller") ?? Load("royal_leaves_feiji") ?? _rainbow;
+            _flower = Load("particle_die_candy_flower_small") ?? _star;
+            _flower2 = Load("particle_die_candy_flower_small_1") ?? _flower;
+            _xCross = Load("particle_other_X_cross") ?? GetShockRing();
         }
 
         static Sprite Load(string name)
@@ -142,10 +150,10 @@ namespace CandyCrush.Vfx
                     if (a.HasTarget)
                     {
                         var target = board.transform.TransformPoint(board.CellLocal(a.Target.Row, a.Target.Col));
-                        yield return PropellerFly(origin, target, cell);
+                        yield return PropellerCrossThenChase(origin, target, cell);
                     }
                     else
-                        yield return BombFlash(origin, cell);
+                        yield return PropellerCrossBurst(origin, cell);
                     break;
                 case TileType.Bomb:
                     yield return BombFlash(origin, cell);
@@ -301,19 +309,105 @@ namespace CandyCrush.Vfx
             if (beamCore != null) Destroy(beamCore.gameObject);
         }
 
+        IEnumerator PropellerCrossThenChase(Vector3 from, Vector3 to, float cell)
+        {
+            yield return PropellerCrossBurst(from, cell);
+            yield return PropellerFly(from, to, cell);
+        }
+
+        IEnumerator PropellerCrossBurst(Vector3 origin, float cell)
+        {
+            float dur = 0.32f;
+
+            // 十字闪光
+            var cross = MakeSprite("PropCross", _xCross, origin, SortingOrder + 14, additive: true);
+            Tint(cross, new Color(1f, 0.95f, 0.7f, 1f));
+            if (cross != null) cross.transform.localScale = Vector3.one * (cell * 0.2f);
+
+            var core = MakeSprite("PropCore", _flash, origin, SortingOrder + 13, additive: true);
+            Tint(core, new Color(1f, 0.9f, 0.4f, 1f));
+            if (core != null) core.transform.localScale = Vector3.one * (cell * 0.35f);
+
+            // 四向花瓣 / 光束
+            Vector3[] dirs = { Vector3.up, Vector3.down, Vector3.left, Vector3.right };
+            var beams = new SpriteRenderer[4];
+            for (int i = 0; i < 4; i++)
+            {
+                beams[i] = MakeSprite($"PropBeam{i}", _glow, origin, SortingOrder + 12, additive: true);
+                Tint(beams[i], new Color(1f, 0.65f, 0.95f, 0.95f));
+            }
+
+            // 花瓣甩出
+            for (int i = 0; i < 4; i++)
+            {
+                var spr = (i & 1) == 0 ? _flower : _flower2;
+                SpawnFadingParticle(origin, spr, cell * 0.55f,
+                    Color.white, 0.35f, dirs[i] * cell * 3.2f, additive: true);
+                SpawnFadingParticle(origin, _star, cell * 0.3f,
+                    new Color(1f, 0.95f, 0.5f, 1f), 0.28f, dirs[i] * cell * 4f, additive: true);
+            }
+
+            float t = 0f;
+            while (t < dur)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / dur);
+                float ease = 1f - Mathf.Pow(1f - u, 2.2f);
+
+                if (cross != null)
+                {
+                    cross.transform.localScale = Vector3.one * (cell * Mathf.Lerp(0.4f, 2.6f, ease));
+                    cross.transform.rotation = Quaternion.Euler(0f, 0f, u * 45f);
+                    var c = cross.color;
+                    c.a = 1f - u;
+                    cross.color = c;
+                }
+                if (core != null)
+                {
+                    core.transform.localScale = Vector3.one * (cell * Mathf.Lerp(0.5f, 1.8f, ease));
+                    var c = core.color;
+                    c.a = 1f - u;
+                    core.color = c;
+                }
+
+                float reach = cell * Mathf.Lerp(0.3f, 1.15f, ease);
+                float thick = cell * (0.45f + 0.25f * Mathf.Sin(u * Mathf.PI));
+                for (int i = 0; i < 4; i++)
+                {
+                    if (beams[i] == null) continue;
+                    bool horizontal = dirs[i].x != 0f;
+                    beams[i].transform.position = origin + dirs[i] * (reach * 0.5f);
+                    beams[i].transform.localScale = horizontal
+                        ? new Vector3(reach, thick, 1f)
+                        : new Vector3(thick, reach, 1f);
+                    var c = beams[i].color;
+                    c.a = 0.95f * (1f - u * 0.5f);
+                    beams[i].color = c;
+                }
+
+                yield return null;
+            }
+
+            if (cross != null) Destroy(cross.gameObject);
+            if (core != null) Destroy(core.gameObject);
+            for (int i = 0; i < beams.Length; i++)
+                if (beams[i] != null) Destroy(beams[i].gameObject);
+        }
+
         IEnumerator PropellerFly(Vector3 from, Vector3 to, float cell)
         {
-            float dur = Mathf.Max(0.2f, propellerDuration);
-            var flyer = MakeSprite("PropellerFly", _star, from, SortingOrder + 5);
-            flyer.transform.localScale = Vector3.one * (cell * 0.7f);
+            float dur = Mathf.Max(0.28f, propellerDuration - 0.32f);
+            var spr = _propeller != null ? _propeller : _star;
+            var flyer = MakeSprite("PropellerFly", spr, from, SortingOrder + 15);
+            flyer.transform.localScale = Vector3.one * (cell * 0.85f);
             Tint(flyer, Color.white);
 
-            var glow = MakeSprite("PropellerGlow", _glow, from, SortingOrder + 4);
-            glow.transform.localScale = Vector3.one * (cell * 0.9f);
-            Tint(glow, new Color(1f, 0.55f, 0.95f, 0.7f));
+            var glow = MakeSprite("PropellerGlow", _glow, from, SortingOrder + 14, additive: true);
+            glow.transform.localScale = Vector3.one * (cell * 1.1f);
+            Tint(glow, new Color(1f, 0.55f, 0.95f, 0.85f));
 
             Vector3 mid = Vector3.Lerp(from, to, 0.45f);
-            mid.y += cell * 1.1f;
+            mid.y += cell * 1.25f;
 
             float t = 0f;
             while (t < dur)
@@ -326,23 +420,24 @@ namespace CandyCrush.Vfx
                 {
                     flyer.transform.position = pos;
                     flyer.transform.rotation = Quaternion.Euler(0f, 0f, u * 720f);
-                    flyer.transform.localScale = Vector3.one * (cell * (0.7f + 0.15f * Mathf.Sin(u * Mathf.PI)));
+                    flyer.transform.localScale = Vector3.one * (cell * (0.8f + 0.2f * Mathf.Sin(u * Mathf.PI)));
                 }
                 if (glow != null)
                 {
                     glow.transform.position = pos;
                     var c = glow.color;
-                    c.a = 0.55f * (1f - u * 0.4f);
+                    c.a = 0.7f * (1f - u * 0.35f);
                     glow.color = c;
                 }
 
-                if (Random.value < 0.55f)
-                    SpawnFadingParticle(pos, _star, cell * 0.28f, new Color(1f, 0.95f, 0.55f, 0.9f), 0.3f);
+                if (Random.value < 0.65f)
+                    SpawnFadingParticle(pos, _flower, cell * 0.28f, Color.white, 0.25f, additive: true);
 
                 yield return null;
             }
 
-            SpawnFadingParticle(to, _flash, cell * 1.1f, new Color(1f, 0.9f, 0.4f, 0.95f), 0.22f);
+            SpawnFadingParticle(to, _flash, cell * 1.2f, new Color(1f, 0.9f, 0.4f, 0.95f), 0.24f, additive: true);
+            SpawnFadingParticle(to, _xCross, cell * 1.4f, new Color(1f, 0.85f, 0.55f, 1f), 0.22f, additive: true);
             if (flyer != null) Destroy(flyer.gameObject);
             if (glow != null) Destroy(glow.gameObject);
         }

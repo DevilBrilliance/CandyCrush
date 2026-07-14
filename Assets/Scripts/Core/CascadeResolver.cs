@@ -82,7 +82,7 @@ namespace CandyCrush.Core
 
             Round++;
             var clearSet = BoosterExecutor.GetClearCells(board, row, col, booster, partnerColor);
-            RecordActivation(result, row, col, booster, clearSet);
+            RecordActivation(result, board, row, col, booster);
             ExpandNestedBoosters(board, clearSet, partnerColor, result);
 
             ApplyClear(board, clearSet, result);
@@ -122,7 +122,7 @@ namespace CandyCrush.Core
                 if (recorded.Add(p))
                 {
                     var preview = BoosterExecutor.GetClearCells(board, p.Row, p.Col, t, partnerColor);
-                    RecordActivation(result, p.Row, p.Col, t, preview);
+                    RecordActivation(result, board, p.Row, p.Col, t);
                 }
 
                 var extra = BoosterExecutor.GetClearCells(board, p.Row, p.Col, t, partnerColor);
@@ -137,7 +137,7 @@ namespace CandyCrush.Core
             }
         }
 
-        static void RecordActivation(CascadeStepResult result, int row, int col, TileType booster, List<GridPos> clearSet)
+        static void RecordActivation(CascadeStepResult result, BoardModel board, int row, int col, TileType booster)
         {
             var act = new ActivatedBooster
             {
@@ -146,15 +146,13 @@ namespace CandyCrush.Core
                 HasTarget = false
             };
 
-            if (booster == TileType.Propeller && clearSet != null)
+            if (booster == TileType.Propeller)
             {
-                for (int i = 0; i < clearSet.Count; i++)
+                var target = BoosterExecutor.FindPropellerTarget(board, row, col);
+                if (target.HasValue)
                 {
-                    var p = clearSet[i];
-                    if (p.Row == row && p.Col == col) continue;
-                    act.Target = p;
+                    act.Target = target.Value;
                     act.HasTarget = true;
-                    break;
                 }
             }
 

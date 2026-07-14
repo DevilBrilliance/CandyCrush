@@ -30,7 +30,7 @@ MonoBehaviour:
   - type: 21
     sprite: {fileID: 21300000, guid: bbcd786500444a2cb9c778c9a1578425, type: 3}
   - type: 22
-    sprite: {fileID: 21300000, guid: 7255fb2427fd4f1a8cce72c7fd0738c5, type: 3}
+    sprite: {fileID: 21300000, guid: fe8b270d13774a369673d2f62b7179f6, type: 3}
   - type: 24
     sprite: {fileID: 21300000, guid: 7255fb2427fd4f1a8cce72c7fd0738c5, type: 3}
   boardCellSprite: {fileID: 21300000, guid: 2cc65bf8f5f546389fad053a3f22616e, type: 3}

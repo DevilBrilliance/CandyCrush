@@ -55,6 +55,7 @@ SpriteAtlas:
     - f0b8308158d2453c936fd0c5a84d758f: 21300000
     - d78f5d91b0ba42288a5e09f786c24605: 21300000
     - 676cbfd1f5724836ac6de835d93717cc: 21300000
+    - b1357c2263f744e096b95494cc2f3b12: 21300000
     - 7255fb2427fd4f1a8cce72c7fd0738c5: 21300000
     - 2ce8e344a38d4812bd89b518042ec9b8: 21300000
     - d1acc5946a5d4c53a6391e395c76cc08: 21300000
@@ -64,6 +65,7 @@ SpriteAtlas:
     - 2cc65bf8f5f546389fad053a3f22616e: 21300000
     - fc0017fb60d09184da6844d8bd5e31e4: 21300000
     - 1fb866cc35544bdd988dd36ca7f77dcf: 21300000
+    - fe8b270d13774a369673d2f62b7179f6: 21300000
     - 6aeadf0d2bc344c992af781740636eaf: 21300000
     - eaed0e2db073423788233d089185d728: 21300000
     - eb9c41fd2589dfa4b902249b278205e2: 21300000
@@ -74,6 +76,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: f0b8308158d2453c936fd0c5a84d758f, type: 3}
   - {fileID: 21300000, guid: d78f5d91b0ba42288a5e09f786c24605, type: 3}
   - {fileID: 21300000, guid: 676cbfd1f5724836ac6de835d93717cc, type: 3}
+  - {fileID: 21300000, guid: b1357c2263f744e096b95494cc2f3b12, type: 3}
   - {fileID: 21300000, guid: 7255fb2427fd4f1a8cce72c7fd0738c5, type: 3}
   - {fileID: 21300000, guid: 2ce8e344a38d4812bd89b518042ec9b8, type: 3}
   - {fileID: 21300000, guid: d1acc5946a5d4c53a6391e395c76cc08, type: 3}
@@ -83,6 +86,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 2cc65bf8f5f546389fad053a3f22616e, type: 3}
   - {fileID: 21300000, guid: fc0017fb60d09184da6844d8bd5e31e4, type: 3}
   - {fileID: 21300000, guid: 1fb866cc35544bdd988dd36ca7f77dcf, type: 3}
+  - {fileID: 21300000, guid: fe8b270d13774a369673d2f62b7179f6, type: 3}
   - {fileID: 21300000, guid: 6aeadf0d2bc344c992af781740636eaf, type: 3}
   - {fileID: 21300000, guid: eaed0e2db073423788233d089185d728, type: 3}
   - {fileID: 21300000, guid: eb9c41fd2589dfa4b902249b278205e2, type: 3}
@@ -92,6 +96,7 @@ SpriteAtlas:
   - candy_bg_01
   - candy_1_4_1
   - candy_1_3_1
+  - boost_candy_propeller
   - boost_candy_rainbow
   - candy_1_1_1
   - boost_candy_bomb
@@ -101,6 +106,7 @@ SpriteAtlas:
   - tileA
   - UIpanel_inside
   - candy_1_2_1
+  - royal_leaves_feiji
   - candy_1_5_1
   - bg_gua6
   - UIpanel_outside

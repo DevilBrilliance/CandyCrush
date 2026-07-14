@@ -264,7 +264,7 @@ namespace CandyCrush.EditorTools
                 new TileSpriteCatalog.Entry { type = TileType.Bomb, sprite = Load($"{ArtRoot}/Sprites/Tiles/boost_candy_bomb.png") },
                 new TileSpriteCatalog.Entry { type = TileType.RocketH, sprite = Load($"{ArtRoot}/Sprites/Tiles/boost_candy_hv.png") },
                 new TileSpriteCatalog.Entry { type = TileType.RocketV, sprite = Load($"{ArtRoot}/Sprites/Tiles/boost_candy_hv.png") },
-                new TileSpriteCatalog.Entry { type = TileType.Propeller, sprite = Load($"{ArtRoot}/Sprites/Tiles/boost_candy_rainbow.png") },
+                new TileSpriteCatalog.Entry { type = TileType.Propeller, sprite = Load($"{ArtRoot}/Sprites/Tiles/royal_leaves_feiji.png") },
                 new TileSpriteCatalog.Entry { type = TileType.ColorBall, sprite = Load($"{ArtRoot}/Sprites/Tiles/boost_candy_rainbow.png") },
             };
             catalog.boardCellSprite = Load($"{ArtRoot}/Sprites/Board/tileA.png");
