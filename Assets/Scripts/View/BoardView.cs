@@ -410,23 +410,7 @@ namespace CandyCrush.View
 
         void RefreshBoardBg()
         {
-            if (_model == null || boardBg == null) return;
-
-            // 资源包没有整张棋盘底板，用 UIpanel_outside/inside 九宫格拼一块带框底板
-            var frame = catalog != null ? catalog.boardPanelSprite : null;
-            if (frame == null) frame = Resources.Load<Sprite>("Board/UIpanel_outside");
-            if (frame == null) frame = Resources.Load<Sprite>("Board/candy_bg_01");
-            if (frame == null && catalog != null) frame = catalog.boardCellSprite;
-            if (frame == null) frame = Resources.Load<Sprite>("Board/tileA");
-
-            var fill = Resources.Load<Sprite>("Board/UIpanel_inside");
-            if (fill == null) fill = frame;
-
-            if (frame == null)
-            {
-                Debug.LogWarning("[BoardView] Missing Board/UIpanel_outside.");
-                return;
-            }
+            if (_model == null) return;
 
             float pad = cellSize * 0.1f;
             float innerW = _model.Cols * cellSize + pad;
@@ -434,46 +418,94 @@ namespace CandyCrush.View
             float border = cellSize * 0.07f;
             var center = new Vector3(boardOrigin.x, boardOrigin.y, 0f);
 
-            // 清掉旧逐格底
-            if (_cellBgRoot != null)
+            // 棋盘底板保持不动（外框 + 内填充），只另铺 tileB 格子
+            if (boardBg != null)
             {
-                for (int i = _cellBgRoot.childCount - 1; i >= 0; i--)
+                var frame = catalog != null ? catalog.boardPanelSprite : null;
+                if (frame == null) frame = Resources.Load<Sprite>("Board/UIpanel_outside");
+                if (frame == null) frame = Resources.Load<Sprite>("Board/candy_bg_01");
+                if (frame == null && catalog != null) frame = catalog.boardCellSprite;
+                if (frame == null) frame = Resources.Load<Sprite>("Board/tileA");
+
+                var fill = Resources.Load<Sprite>("Board/UIpanel_inside");
+                if (fill == null) fill = frame;
+
+                if (frame != null)
                 {
-                    var child = _cellBgRoot.GetChild(i).gameObject;
-                    child.transform.SetParent(null, false);
-                    if (Application.isPlaying) Destroy(child);
-                    else DestroyImmediate(child);
+                    FitSlicedBoard(boardBg, frame, innerW + border * 2f, innerH + border * 2f);
+                    boardBg.enabled = true;
+                    boardBg.transform.localPosition = center;
+                    boardBg.color = new Color(0.55f, 0.78f, 1f, 0.95f);
+                    boardBg.sortingOrder = 0;
+
+                    if (_cellBgRoot == null)
+                    {
+                        var go = new GameObject("BoardFill");
+                        go.transform.SetParent(transform, false);
+                        _cellBgRoot = go.transform;
+                    }
+
+                    var fillGo = _cellBgRoot.Find("Inner");
+                    SpriteRenderer fillSr;
+                    if (fillGo == null)
+                    {
+                        var go = new GameObject("Inner");
+                        go.transform.SetParent(_cellBgRoot, false);
+                        fillSr = go.AddComponent<SpriteRenderer>();
+                    }
+                    else fillSr = fillGo.GetComponent<SpriteRenderer>();
+
+                    FitSlicedBoard(fillSr, fill, innerW, innerH);
+                    fillSr.transform.localPosition = center;
+                    fillSr.color = new Color(0.28f, 0.48f, 0.78f, 0.62f);
+                    fillSr.sortingOrder = 1;
                 }
             }
 
-            // 外框
-            FitSlicedBoard(boardBg, frame, innerW + border * 2f, innerH + border * 2f);
-            boardBg.transform.localPosition = center;
-            boardBg.color = new Color(0.55f, 0.78f, 1f, 0.95f);
-            boardBg.sortingOrder = 0;
-
-            // 内填充（另一张资源，略小）
-            if (_cellBgRoot == null)
+            // 只用 tileB 按棋子格位铺一层
+            var cell = catalog != null ? catalog.boardCellAltSprite : null;
+            if (cell == null) cell = Resources.Load<Sprite>("Board/tileB");
+            if (cell == null && catalog != null) cell = catalog.boardCellSprite;
+            if (cell == null)
             {
-                var go = new GameObject("BoardFill");
+                Debug.LogWarning("[BoardView] Missing Board/tileB.");
+                return;
+            }
+
+            Transform cellRoot = transform.Find("BoardCells");
+            if (cellRoot == null)
+            {
+                var go = new GameObject("BoardCells");
                 go.transform.SetParent(transform, false);
-                _cellBgRoot = go.transform;
+                cellRoot = go.transform;
             }
 
-            var fillGo = _cellBgRoot.Find("Inner");
-            SpriteRenderer fillSr;
-            if (fillGo == null)
+            for (int i = cellRoot.childCount - 1; i >= 0; i--)
             {
-                var go = new GameObject("Inner");
-                go.transform.SetParent(_cellBgRoot, false);
-                fillSr = go.AddComponent<SpriteRenderer>();
+                var child = cellRoot.GetChild(i).gameObject;
+                child.transform.SetParent(null, false);
+                if (Application.isPlaying) Destroy(child);
+                else DestroyImmediate(child);
             }
-            else fillSr = fillGo.GetComponent<SpriteRenderer>();
 
-            FitSlicedBoard(fillSr, fill, innerW, innerH);
-            fillSr.transform.localPosition = center;
-            fillSr.color = new Color(0.28f, 0.48f, 0.78f, 0.62f);
-            fillSr.sortingOrder = 1;
+            float fit = cellSize;
+            for (int r = 0; r < _model.Rows; r++)
+            for (int c = 0; c < _model.Cols; c++)
+            {
+                var cellGo = new GameObject($"Cell_{r}_{c}");
+                cellGo.transform.SetParent(cellRoot, false);
+                cellGo.transform.localPosition = CellLocal(r, c);
+
+                var sr = cellGo.AddComponent<SpriteRenderer>();
+                sr.sprite = cell;
+                sr.color = new Color(1f, 1f, 1f, 0.45f);
+                sr.sortingOrder = 2;
+                sr.drawMode = SpriteDrawMode.Simple;
+
+                var b = cell.bounds.size;
+                if (b.x > 0.0001f && b.y > 0.0001f)
+                    cellGo.transform.localScale = new Vector3(fit / b.x, fit / b.y, 1f);
+            }
         }
 
         static void FitSlicedBoard(SpriteRenderer sr, Sprite sprite, float worldW, float worldH)
