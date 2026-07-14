@@ -62,6 +62,8 @@ namespace CandyCrush.Game
             var a = board.Get(r0, c0);
             var b = board.Get(r1, c1);
             if (a == TileType.Empty || b == TileType.Empty) return false;
+            // 行李箱不可参与任何交换（含道具）
+            if (a == TileType.Suitcase || b == TileType.Suitcase) return false;
 
             bool boosterSwap = TileTypeUtil.IsBooster(a) || TileTypeUtil.IsBooster(b);
             bool valid = boosterSwap || SwapValidator.WouldCreateMatch(board, r0, c0, r1, c1, _enableColorBall);

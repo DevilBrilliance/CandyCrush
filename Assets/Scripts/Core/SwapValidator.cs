@@ -16,8 +16,9 @@ namespace CandyCrush.Core
 
             var a = board.Get(r0, c0);
             var b = board.Get(r1, c1);
-            // 空格不可换；道具可以和任意块交换激活
+            // 空格、行李箱不可换；道具可与其它普通块/道具交换激活
             if (a == TileType.Empty || b == TileType.Empty) return false;
+            if (a == TileType.Suitcase || b == TileType.Suitcase) return false;
 
             if (TileTypeUtil.IsBooster(a) || TileTypeUtil.IsBooster(b))
                 return true;
