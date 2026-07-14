@@ -78,6 +78,8 @@ SpriteAtlas:
     - e87f4d5871464c2f9e119c58452aab4b: 21300000
     - 23fff319663bc4740857bb0627597858: 21300000
     - be17d7396016434e86f960d4bc77febf: 21300000
+    - 5ee96179129c7db42bc926a9befb7dfa: 21300000
+    - 7ba01c8acd8c7dd48b92f1443c84cd83: 21300000
     - 659d117bba4145bc8e4d90b1871a57db: 21300000
     - b57c668b63640304783e603c4c977a70: 21300000
     - 9862c88c1d684681b1b73eee42cebd8a: 21300000
@@ -115,6 +117,8 @@ SpriteAtlas:
   - {fileID: 21300000, guid: e87f4d5871464c2f9e119c58452aab4b, type: 3}
   - {fileID: 21300000, guid: 23fff319663bc4740857bb0627597858, type: 3}
   - {fileID: 21300000, guid: be17d7396016434e86f960d4bc77febf, type: 3}
+  - {fileID: 21300000, guid: 5ee96179129c7db42bc926a9befb7dfa, type: 3}
+  - {fileID: 21300000, guid: 7ba01c8acd8c7dd48b92f1443c84cd83, type: 3}
   - {fileID: 21300000, guid: 659d117bba4145bc8e4d90b1871a57db, type: 3}
   - {fileID: 21300000, guid: b57c668b63640304783e603c4c977a70, type: 3}
   - {fileID: 21300000, guid: 9862c88c1d684681b1b73eee42cebd8a, type: 3}
@@ -151,6 +155,8 @@ SpriteAtlas:
   - particle_die_candy_1_4_03
   - efx_Rainbowefx_03
   - particle_die_candy_1_3_02
+  - particle_die_candy_27
+  - efx_candy_27_4
   - particle_die_candy_1_3_03
   - efx_smoke_1
   - particle_die_candy_1_4_04

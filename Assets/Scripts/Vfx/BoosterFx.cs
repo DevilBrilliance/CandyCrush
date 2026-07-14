@@ -17,18 +17,24 @@ namespace CandyCrush.Vfx
 
         [SerializeField] float rocketDuration = 0.38f;
         [SerializeField] float propellerDuration = 0.48f;
-        [SerializeField] float bombDuration = 0.28f;
+        [SerializeField] float bombDuration = 0.62f;
         [SerializeField] float colorBallDuration = 0.4f;
         [SerializeField] float spawnPopDuration = 0.28f;
 
         Sprite _dot;
         Sprite _smoke;
         Sprite _star;
+        Sprite _star2;
         Sprite _glow;
         Sprite _rainbow;
         Sprite _flash;
+        Sprite _starlight;
+        Sprite _bombShard;
         static Material _mat;
+        static Material _additiveMat;
         static Texture2D _whiteTex;
+        static Texture2D _ringTex;
+        static Sprite _ringSprite;
 
         public static BoosterFx Ensure(Transform parent)
         {
@@ -46,9 +52,12 @@ namespace CandyCrush.Vfx
             _dot = Load("boost_other_dot") ?? Load("particle_other_dot") ?? MakeDot(64);
             _smoke = Load("efx_smoke_1") ?? Load("particle_smoke") ?? _dot;
             _star = Load("particle_die_star_1") ?? Load("particle_die_star_2") ?? _dot;
-            _glow = Load("efx_candy_27") ?? Load("efx_candy_27_1") ?? _dot;
+            _star2 = Load("particle_die_star_2") ?? _star;
+            _glow = Load("efx_candy_27") ?? _dot;
             _rainbow = Load("efx_Rainbowefx") ?? Load("efx_Rainbowefx_03") ?? _glow;
             _flash = Load("candy_12_particle") ?? _glow;
+            _starlight = Load("UIpanel_starlight") ?? _star;
+            _bombShard = Load("particle_die_candy_27") ?? _star;
         }
 
         static Sprite Load(string name)
@@ -75,7 +84,7 @@ namespace CandyCrush.Vfx
                     TileType.RocketH => rocketDuration,
                     TileType.RocketV => rocketDuration,
                     TileType.Propeller => propellerDuration,
-                    TileType.Bomb => bombDuration,
+                    TileType.Bomb => Mathf.Max(0.45f, bombDuration),
                     TileType.ColorBall => colorBallDuration,
                     _ => 0.2f
                 };
@@ -250,19 +259,52 @@ namespace CandyCrush.Vfx
 
         IEnumerator BombFlash(Vector3 origin, float cell)
         {
-            float dur = Mathf.Max(0.12f, bombDuration);
-            var ring = MakeSprite("BombRing", _glow, origin, SortingOrder + 6);
-            Tint(ring, new Color(1f, 0.35f, 0.2f, 0.9f));
-            var core = MakeSprite("BombCore", _flash, origin, SortingOrder + 7);
-            Tint(core, new Color(1f, 0.95f, 0.6f, 1f));
-            core.transform.localScale = Vector3.one * (cell * 0.5f);
+            // 对齐架构/视频：炽白爆闪 + 扩散热圈 + 星光甩射（覆盖约 5×5）
+            float dur = Mathf.Max(0.45f, bombDuration);
+            float reach = cell * 2.6f; // 半边约 2.5 格
 
-            for (int i = 0; i < 8; i++)
+            var flash = MakeSprite("BombStarFlash", _starlight, origin, SortingOrder + 12, additive: true);
+            Tint(flash, new Color(1f, 0.95f, 0.75f, 1f));
+            flash.transform.localScale = Vector3.one * (cell * 0.2f);
+
+            var core = MakeSprite("BombCore", _flash, origin, SortingOrder + 11, additive: true);
+            Tint(core, new Color(1f, 0.9f, 0.55f, 1f));
+            core.transform.localScale = Vector3.one * (cell * 0.4f);
+
+            var ring = MakeSprite("BombRing", GetShockRing(), origin, SortingOrder + 9, additive: true);
+            Tint(ring, new Color(1f, 0.55f, 0.2f, 0.95f));
+            ring.transform.localScale = Vector3.one * (cell * 0.5f);
+
+            var heat = MakeSprite("BombHeat", _glow, origin, SortingOrder + 8, additive: true);
+            Tint(heat, new Color(1f, 0.35f, 0.12f, 0.85f));
+            heat.transform.localScale = Vector3.one * (cell * 0.8f);
+
+            // 星光 / 碎片放射
+            int burst = 16;
+            for (int i = 0; i < burst; i++)
             {
-                float ang = i * 45f * Mathf.Deg2Rad;
+                float ang = (i / (float)burst) * Mathf.PI * 2f + Random.Range(-0.08f, 0.08f);
                 var dir = new Vector3(Mathf.Cos(ang), Mathf.Sin(ang), 0f);
-                SpawnFadingParticle(origin + dir * cell * 0.2f, _smoke, cell * 0.45f,
-                    new Color(1f, 0.45f, 0.15f, 0.85f), 0.35f, dir * cell * 3.2f);
+                var spr = (i % 3 == 0) ? _bombShard : ((i & 1) == 0 ? _star : _star2);
+                Color col = (i % 3 == 0)
+                    ? new Color(1f, 0.45f, 0.85f, 1f)
+                    : new Color(1f, 0.9f, 0.45f, 1f);
+                float speed = reach * Random.Range(2.4f, 4.2f);
+                SpawnFadingParticle(origin + dir * cell * 0.15f, spr,
+                    cell * Random.Range(0.35f, 0.7f), col, Random.Range(0.35f, 0.55f), dir * speed, additive: true);
+            }
+
+            // 烟雾团
+            for (int i = 0; i < 10; i++)
+            {
+                float ang = Random.Range(0f, Mathf.PI * 2f);
+                var dir = new Vector3(Mathf.Cos(ang), Mathf.Sin(ang), 0f);
+                SpawnFadingParticle(origin + dir * cell * Random.Range(0.1f, 0.6f), _smoke,
+                    cell * Random.Range(0.55f, 1.1f),
+                    new Color(1f, 0.55f, 0.25f, 0.75f),
+                    Random.Range(0.4f, 0.65f),
+                    dir * reach * Random.Range(0.8f, 1.6f),
+                    additive: true);
             }
 
             float t = 0f;
@@ -270,27 +312,61 @@ namespace CandyCrush.Vfx
             {
                 t += Time.deltaTime;
                 float u = Mathf.Clamp01(t / dur);
-                // 视觉覆盖约 5×5
-                float s = Mathf.Lerp(0.6f, 5.0f, 1f - Mathf.Pow(1f - u, 2f));
-                if (ring != null)
+                float ease = 1f - Mathf.Pow(1f - u, 2.2f);
+
+                if (flash != null)
                 {
-                    ring.transform.localScale = Vector3.one * (cell * s);
-                    var c = ring.color;
-                    c.a = 0.9f * (1f - u);
-                    ring.color = c;
+                    float fs = Mathf.Lerp(0.4f, 4.2f, Mathf.Sin(Mathf.Clamp01(u * 1.4f) * Mathf.PI));
+                    flash.transform.localScale = Vector3.one * (cell * fs);
+                    flash.transform.rotation = Quaternion.Euler(0f, 0f, u * 55f);
+                    var c = flash.color;
+                    c.a = u < 0.35f ? 1f : Mathf.Lerp(1f, 0f, (u - 0.35f) / 0.65f);
+                    flash.color = c;
                 }
+
                 if (core != null)
                 {
-                    core.transform.localScale = Vector3.one * (cell * Mathf.Lerp(0.8f, 0.1f, u));
+                    core.transform.localScale = Vector3.one * (cell * Mathf.Lerp(0.6f, 2.2f, ease));
                     var c = core.color;
                     c.a = 1f - u;
                     core.color = c;
                 }
+
+                if (ring != null)
+                {
+                    // 扩到约 5 格直径
+                    ring.transform.localScale = Vector3.one * (cell * Mathf.Lerp(0.8f, 5.4f, ease));
+                    var c = ring.color;
+                    c.a = 0.95f * (1f - u) * (1f - u);
+                    ring.color = c;
+                }
+
+                if (heat != null)
+                {
+                    heat.transform.localScale = Vector3.one * (cell * Mathf.Lerp(1.0f, 5.2f, ease));
+                    var c = heat.color;
+                    c.a = 0.7f * (1f - u);
+                    heat.color = c;
+                }
+
+                // mid burst stars
+                if (u > 0.12f && u < 0.55f && Random.value < 0.55f)
+                {
+                    float ang = Random.Range(0f, Mathf.PI * 2f);
+                    var dir = new Vector3(Mathf.Cos(ang), Mathf.Sin(ang), 0f);
+                    SpawnFadingParticle(origin + dir * cell * Random.Range(0.4f, 1.5f), _star,
+                        cell * Random.Range(0.2f, 0.4f),
+                        new Color(1f, 0.95f, 0.6f, 0.95f),
+                        0.28f, dir * reach * 1.8f, additive: true);
+                }
+
                 yield return null;
             }
 
-            if (ring != null) Destroy(ring.gameObject);
+            if (flash != null) Destroy(flash.gameObject);
             if (core != null) Destroy(core.gameObject);
+            if (ring != null) Destroy(ring.gameObject);
+            if (heat != null) Destroy(heat.gameObject);
         }
 
         IEnumerator ColorBallPulse(Vector3 origin, float cell)
@@ -352,9 +428,10 @@ namespace CandyCrush.Vfx
             if (glow != null) Destroy(glow.gameObject);
         }
 
-        void SpawnFadingParticle(Vector3 pos, Sprite sprite, float size, Color color, float life, Vector3 velocity = default)
+        void SpawnFadingParticle(Vector3 pos, Sprite sprite, float size, Color color, float life,
+            Vector3 velocity = default, bool additive = false)
         {
-            var sr = MakeSprite("P", sprite != null ? sprite : _dot, pos, SortingOrder + 8);
+            var sr = MakeSprite("P", sprite != null ? sprite : _dot, pos, SortingOrder + 8, additive);
             if (sr == null) return;
             sr.transform.localScale = Vector3.one * size;
             Tint(sr, color);
@@ -370,20 +447,20 @@ namespace CandyCrush.Vfx
                 t += Time.deltaTime;
                 float u = Mathf.Clamp01(t / life);
                 sr.transform.position += velocity * Time.deltaTime;
-                velocity *= 0.92f;
+                velocity *= 0.9f;
                 var c = baseCol;
                 c.a = baseCol.a * (1f - u);
                 sr.color = c;
-                sr.transform.localScale *= 0.985f;
+                sr.transform.localScale *= 0.978f;
                 yield return null;
             }
             if (sr != null) Destroy(sr.gameObject);
         }
 
         SpriteRenderer MakeTrailHead(string name, Sprite sprite, Vector3 pos, int order) =>
-            MakeSprite(name, sprite, pos, order);
+            MakeSprite(name, sprite, pos, order, additive: true);
 
-        SpriteRenderer MakeSprite(string name, Sprite sprite, Vector3 pos, int order)
+        SpriteRenderer MakeSprite(string name, Sprite sprite, Vector3 pos, int order, bool additive = false)
         {
             var go = new GameObject(name);
             go.transform.SetParent(transform, false);
@@ -391,13 +468,56 @@ namespace CandyCrush.Vfx
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = sprite != null ? sprite : MakeDot(32);
             sr.sortingOrder = order;
-            if (_mat == null)
-            {
-                var sh = Shader.Find("Sprites/Default");
-                if (sh != null) _mat = new Material(sh);
-            }
-            if (_mat != null) sr.sharedMaterial = _mat;
+            sr.sharedMaterial = additive ? GetAdditiveMat() : GetDefaultMat();
             return sr;
+        }
+
+        static Material GetDefaultMat()
+        {
+            if (_mat != null) return _mat;
+            var sh = Shader.Find("Sprites/Default") ?? Shader.Find("UI/Default");
+            if (sh != null) _mat = new Material(sh) { hideFlags = HideFlags.HideAndDontSave };
+            return _mat;
+        }
+
+        static Material GetAdditiveMat()
+        {
+            if (_additiveMat != null) return _additiveMat;
+            var sh = Shader.Find("Legacy Shaders/Particles/Additive")
+                     ?? Shader.Find("Particles/Additive")
+                     ?? Shader.Find("Mobile/Particles/Additive")
+                     ?? Shader.Find("Sprites/Default");
+            _additiveMat = new Material(sh) { hideFlags = HideFlags.HideAndDontSave, name = "BoosterFxAdditive" };
+            if (_additiveMat.HasProperty("_TintColor"))
+                _additiveMat.SetColor("_TintColor", new Color(1f, 1f, 1f, 0.6f));
+            return _additiveMat;
+        }
+
+        static Sprite GetShockRing()
+        {
+            if (_ringSprite != null) return _ringSprite;
+
+            const int size = 64;
+            _ringTex = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            float mid = (size - 1) * 0.5f;
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float dx = (x - mid) / mid;
+                float dy = (y - mid) / mid;
+                float d = Mathf.Sqrt(dx * dx + dy * dy);
+                float a = Mathf.Clamp01(1f - Mathf.Abs(d - 0.72f) / 0.22f);
+                a = a * a;
+                _ringTex.SetPixel(x, y, new Color(a, a, a, 1f));
+            }
+            _ringTex.Apply(false, true);
+            _ringSprite = Sprite.Create(_ringTex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+            return _ringSprite;
         }
 
         static void Tint(SpriteRenderer sr, Color c)
