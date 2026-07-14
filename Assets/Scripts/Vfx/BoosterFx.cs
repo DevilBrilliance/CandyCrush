@@ -15,7 +15,7 @@ namespace CandyCrush.Vfx
     {
         public const int SortingOrder = 120;
 
-        [SerializeField] float rocketDuration = 0.38f;
+        [SerializeField] float rocketDuration = 0.52f;
         [SerializeField] float propellerDuration = 0.48f;
         [SerializeField] float bombDuration = 0.62f;
         [SerializeField] float colorBallDuration = 0.4f;
@@ -30,6 +30,8 @@ namespace CandyCrush.Vfx
         Sprite _flash;
         Sprite _starlight;
         Sprite _bombShard;
+        Sprite _arrowUp;
+        Sprite _arrowDown;
         static Material _mat;
         static Material _additiveMat;
         static Texture2D _whiteTex;
@@ -58,6 +60,8 @@ namespace CandyCrush.Vfx
             _flash = Load("candy_12_particle") ?? _glow;
             _starlight = Load("UIpanel_starlight") ?? _star;
             _bombShard = Load("particle_die_candy_27") ?? _star;
+            _arrowUp = Load("efx_arrow_2") ?? _star;
+            _arrowDown = Load("efx_arrow_1") ?? _arrowUp;
         }
 
         static Sprite Load(string name)
@@ -154,61 +158,128 @@ namespace CandyCrush.Vfx
 
         IEnumerator RocketSweep(Vector3 origin, bool horizontal, int count, float cell, Transform board)
         {
-            float dur = Mathf.Max(0.15f, rocketDuration);
-            var beam = MakeSprite("RocketBeam", _glow, origin, SortingOrder + 2);
-            beam.transform.localScale = horizontal
-                ? new Vector3(cell * 0.35f, cell * 0.55f, 1f)
-                : new Vector3(cell * 0.55f, cell * 0.35f, 1f);
-            Tint(beam, new Color(0.45f, 0.9f, 1f, 0.95f));
-
-            // 双向扫
-            float half = (count - 1) * 0.5f * cell;
+            float dur = Mathf.Max(0.28f, rocketDuration);
+            float half = Mathf.Max(cell, (count - 1) * 0.5f * cell);
             Vector3 dirA = horizontal ? Vector3.right : Vector3.up;
             Vector3 dirB = -dirA;
 
-            var trailA = MakeTrailHead("RocketA", _smoke, origin, SortingOrder + 3);
-            var trailB = MakeTrailHead("RocketB", _smoke, origin, SortingOrder + 3);
-            Tint(trailA, new Color(1f, 0.85f, 0.4f, 1f));
-            Tint(trailB, new Color(1f, 0.85f, 0.4f, 1f));
-            trailA.transform.localScale = Vector3.one * (cell * 0.45f);
-            trailB.transform.localScale = Vector3.one * (cell * 0.45f);
+            // 起爆闪光
+            SpawnFadingParticle(origin, _flash, cell * 1.6f, new Color(1f, 0.95f, 0.55f, 1f), 0.28f, additive: true);
+            SpawnFadingParticle(origin, _starlight, cell * 2.2f, new Color(1f, 0.85f, 0.35f, 1f), 0.32f, additive: true);
+
+            // 粗光带（底）+ 亮芯（上）
+            var beamSoft = MakeSprite("RocketBeamSoft", _glow, origin, SortingOrder + 10, additive: true);
+            Tint(beamSoft, new Color(1f, 0.75f, 0.25f, 0.95f));
+            var beamCore = MakeSprite("RocketBeamCore", _flash, origin, SortingOrder + 11, additive: true);
+            Tint(beamCore, new Color(1f, 0.98f, 0.85f, 1f));
+
+            // 双向箭头头
+            var headA = MakeSprite("RocketHeadA", horizontal || dirA.y > 0 ? _arrowUp : _arrowDown, origin, SortingOrder + 13);
+            var headB = MakeSprite("RocketHeadB", _arrowDown, origin, SortingOrder + 13);
+            if (horizontal)
+            {
+                if (headA != null) headA.transform.rotation = Quaternion.Euler(0f, 0f, -90f); // 右
+                if (headB != null)
+                {
+                    headB.sprite = _arrowUp;
+                    headB.transform.rotation = Quaternion.Euler(0f, 0f, 90f); // 左
+                }
+            }
+            else
+            {
+                if (headA != null) { headA.sprite = _arrowUp; headA.transform.rotation = Quaternion.identity; }
+                if (headB != null) { headB.sprite = _arrowDown; headB.transform.rotation = Quaternion.identity; }
+            }
+            float headScale = cell * 0.95f;
+            if (headA != null) { Tint(headA, Color.white); headA.transform.localScale = Vector3.one * headScale; }
+            if (headB != null) { Tint(headB, Color.white); headB.transform.localScale = Vector3.one * headScale; }
+
+            // 箭头拖尾光晕
+            var glowA = MakeSprite("RocketGlowA", _glow, origin, SortingOrder + 12, additive: true);
+            var glowB = MakeSprite("RocketGlowB", _glow, origin, SortingOrder + 12, additive: true);
+            Tint(glowA, new Color(1f, 0.7f, 0.2f, 1f));
+            Tint(glowB, new Color(1f, 0.7f, 0.2f, 1f));
+            if (glowA != null) glowA.transform.localScale = Vector3.one * (cell * 1.1f);
+            if (glowB != null) glowB.transform.localScale = Vector3.one * (cell * 1.1f);
 
             float t = 0f;
             while (t < dur)
             {
                 t += Time.deltaTime;
                 float u = Mathf.Clamp01(t / dur);
-                float ease = 1f - Mathf.Pow(1f - u, 2f);
-                float dist = Mathf.Lerp(0f, half + cell, ease);
+                float ease = 1f - Mathf.Pow(1f - u, 2.4f);
+                float dist = Mathf.Lerp(0f, half + cell * 0.35f, ease);
+                float pulse = 0.55f + 0.45f * Mathf.Sin(u * Mathf.PI);
 
-                if (trailA != null) trailA.transform.position = origin + dirA * dist;
-                if (trailB != null) trailB.transform.position = origin + dirB * dist;
-
-                if (beam != null)
+                Vector3 posA = origin + dirA * dist;
+                Vector3 posB = origin + dirB * dist;
+                if (headA != null) headA.transform.position = posA;
+                if (headB != null) headB.transform.position = posB;
+                if (glowA != null)
                 {
-                    float len = dist * 2f + cell * 0.4f;
-                    beam.transform.position = origin;
-                    beam.transform.localScale = horizontal
-                        ? new Vector3(len, cell * (0.35f + 0.2f * Mathf.Sin(u * Mathf.PI)), 1f)
-                        : new Vector3(cell * (0.35f + 0.2f * Mathf.Sin(u * Mathf.PI)), len, 1f);
-                    var c = beam.color;
-                    c.a = 0.85f * (1f - u * 0.3f);
-                    beam.color = c;
+                    glowA.transform.position = posA;
+                    glowA.transform.localScale = Vector3.one * (cell * (1.0f + 0.35f * pulse));
+                }
+                if (glowB != null)
+                {
+                    glowB.transform.position = posB;
+                    glowB.transform.localScale = Vector3.one * (cell * (1.0f + 0.35f * pulse));
                 }
 
-                // 偶尔喷烟点
-                if (Random.value < 0.45f)
+                float len = dist * 2f + cell * 0.85f;
+                float thickSoft = cell * (0.85f + 0.35f * pulse);
+                float thickCore = cell * (0.38f + 0.18f * pulse);
+                if (beamSoft != null)
                 {
-                    SpawnFadingParticle(origin + dirA * dist, _smoke, cell * 0.35f, new Color(1f, 0.8f, 0.35f, 0.8f), 0.25f);
-                    SpawnFadingParticle(origin + dirB * dist, _smoke, cell * 0.35f, new Color(1f, 0.8f, 0.35f, 0.8f), 0.25f);
+                    beamSoft.transform.position = origin;
+                    beamSoft.transform.localScale = horizontal
+                        ? new Vector3(len, thickSoft, 1f)
+                        : new Vector3(thickSoft, len, 1f);
+                    var c = beamSoft.color;
+                    c.a = 0.95f * (1f - u * 0.25f);
+                    beamSoft.color = c;
+                }
+                if (beamCore != null)
+                {
+                    beamCore.transform.position = origin;
+                    beamCore.transform.localScale = horizontal
+                        ? new Vector3(len, thickCore, 1f)
+                        : new Vector3(thickCore, len, 1f);
+                    var c = beamCore.color;
+                    c.a = 1f * (1f - u * 0.35f);
+                    beamCore.color = c;
+                }
+
+                // 沿途密集火花 + 烟雾
+                if (Random.value < 0.85f)
+                {
+                    SpawnFadingParticle(posA, _star, cell * Random.Range(0.28f, 0.5f),
+                        new Color(1f, 0.95f, 0.45f, 1f), 0.28f, dirA * cell * 2.2f, additive: true);
+                    SpawnFadingParticle(posB, _star, cell * Random.Range(0.28f, 0.5f),
+                        new Color(1f, 0.95f, 0.45f, 1f), 0.28f, dirB * cell * 2.2f, additive: true);
+                }
+                if (Random.value < 0.55f)
+                {
+                    SpawnFadingParticle(posA, _smoke, cell * 0.55f,
+                        new Color(1f, 0.65f, 0.25f, 0.85f), 0.32f, additive: true);
+                    SpawnFadingParticle(posB, _smoke, cell * 0.55f,
+                        new Color(1f, 0.65f, 0.25f, 0.85f), 0.32f, additive: true);
                 }
 
                 yield return null;
             }
 
-            if (trailA != null) Destroy(trailA.gameObject);
-            if (trailB != null) Destroy(trailB.gameObject);
-            if (beam != null) Destroy(beam.gameObject);
+            // 收尾整条闪一下
+            SpawnFadingParticle(origin, _flash,
+                horizontal ? cell * count * 0.35f : cell * 1.4f,
+                new Color(1f, 0.95f, 0.6f, 1f), 0.22f, additive: true);
+
+            if (headA != null) Destroy(headA.gameObject);
+            if (headB != null) Destroy(headB.gameObject);
+            if (glowA != null) Destroy(glowA.gameObject);
+            if (glowB != null) Destroy(glowB.gameObject);
+            if (beamSoft != null) Destroy(beamSoft.gameObject);
+            if (beamCore != null) Destroy(beamCore.gameObject);
         }
 
         IEnumerator PropellerFly(Vector3 from, Vector3 to, float cell)
