@@ -24,6 +24,10 @@ namespace CandyCrush.View
         [SerializeField] float clearShrinkDuration = 0.1f;
         [Tooltip("消除前缩到的相对基准缩放（0.1 = 缩小到原尺寸 10%）")]
         [SerializeField] float clearShrinkScale = 0.1f;
+        [Tooltip("新块落到格位后的微震动时长")]
+        [SerializeField] float landShakeDuration = 0.3f;
+        [Tooltip("落地震动强度（相对基准缩放）")]
+        [SerializeField] float landShakeStrength = 0.07f;
 
         BoardModel _model;
         TileView[,] _views;
@@ -313,7 +317,48 @@ namespace CandyCrush.View
             foreach (var view in toDestroy)
                 DestroyTile(view);
 
+            // --- 落地微震动（下落/新生成的块）---
+            var landed = new List<(TileView view, Vector3 restPos)>(falling.Count + spawning.Count);
+            foreach (var f in falling)
+                if (f.view != null) landed.Add((f.view, f.to));
+            foreach (var s in spawning)
+                if (s.view != null) landed.Add((s.view, s.to));
+            if (landed.Count > 0)
+                yield return PlayLandShake(landed);
+
             ReconcileViews();
+        }
+
+        IEnumerator PlayLandShake(List<(TileView view, Vector3 restPos)> tiles)
+        {
+            float dur = landShakeDuration > 0.01f ? landShakeDuration : 0.3f;
+            float strength = Mathf.Max(0.01f, landShakeStrength);
+            float t = 0f;
+            while (t < dur)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / dur);
+                // 衰减正弦：落地压扁→回弹→迅速归稳
+                float wobble = Mathf.Sin(u * Mathf.PI * 5f) * (1f - u) * (1f - u) * strength;
+                foreach (var item in tiles)
+                {
+                    if (item.view == null) continue;
+                    float baseS = item.view.BaseScale;
+                    float sx = baseS * (1f + wobble);
+                    float sy = baseS * (1f - wobble * 0.9f);
+                    item.view.transform.localScale = new Vector3(sx, sy, 1f);
+                    item.view.transform.localPosition =
+                        item.restPos + Vector3.up * (wobble * cellSize * 0.12f);
+                }
+                yield return null;
+            }
+
+            foreach (var item in tiles)
+            {
+                if (item.view == null) continue;
+                item.view.RestoreVisual();
+                item.view.transform.localPosition = item.restPos;
+            }
         }
 
         TileView CreateTileView(TileType type, int row, int col, Vector3 localPos)
