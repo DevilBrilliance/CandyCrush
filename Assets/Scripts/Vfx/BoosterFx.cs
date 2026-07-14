@@ -261,8 +261,8 @@ namespace CandyCrush.Vfx
             {
                 float ang = i * 45f * Mathf.Deg2Rad;
                 var dir = new Vector3(Mathf.Cos(ang), Mathf.Sin(ang), 0f);
-                SpawnFadingParticle(origin + dir * cell * 0.2f, _smoke, cell * 0.4f,
-                    new Color(1f, 0.45f, 0.15f, 0.85f), 0.35f, dir * cell * 2.2f);
+                SpawnFadingParticle(origin + dir * cell * 0.2f, _smoke, cell * 0.45f,
+                    new Color(1f, 0.45f, 0.15f, 0.85f), 0.35f, dir * cell * 3.2f);
             }
 
             float t = 0f;
@@ -270,7 +270,8 @@ namespace CandyCrush.Vfx
             {
                 t += Time.deltaTime;
                 float u = Mathf.Clamp01(t / dur);
-                float s = Mathf.Lerp(0.4f, 2.4f, 1f - Mathf.Pow(1f - u, 2f));
+                // 视觉覆盖约 5×5
+                float s = Mathf.Lerp(0.6f, 5.0f, 1f - Mathf.Pow(1f - u, 2f));
                 if (ring != null)
                 {
                     ring.transform.localScale = Vector3.one * (cell * s);

@@ -16,7 +16,7 @@ namespace CandyCrush.Core
         };
     }
 
-    /// <summary>道具效果：火箭清行/列、炸弹 3×3、螺旋桨追箱、彩球同色。</summary>
+    /// <summary>道具效果：火箭清行/列、炸弹 5×5、螺旋桨追箱、彩球同色。</summary>
     public static class BoosterExecutor
     {
         public static List<GridPos> GetClearCells(BoardModel board, int row, int col, TileType booster, TileType partnerColor)
@@ -35,8 +35,9 @@ namespace CandyCrush.Core
                         cells.Add(new GridPos(r, col));
                     break;
                 case TileType.Bomb:
-                    for (int r = row - 1; r <= row + 1; r++)
-                    for (int c = col - 1; c <= col + 1; c++)
+                    // 以炸弹为中心 5×5
+                    for (int r = row - 2; r <= row + 2; r++)
+                    for (int c = col - 2; c <= col + 2; c++)
                         if (board.InBounds(r, c)) cells.Add(new GridPos(r, c));
                     break;
                 case TileType.Propeller:

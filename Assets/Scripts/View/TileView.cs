@@ -26,6 +26,7 @@ namespace CandyCrush.View
             SetAlpha(1f);
             FitToCell(cellSize);
             CacheBaseScale();
+            ApplyOrientation();
             gameObject.name = $"Tile_{row}_{col}_{type}";
         }
 
@@ -33,6 +34,13 @@ namespace CandyCrush.View
         {
             Row = row;
             Col = col;
+        }
+
+        /// <summary>横消火箭 sprite 默认竖图，需旋转到横向。</summary>
+        public void ApplyOrientation()
+        {
+            float z = Type == TileType.RocketH ? 90f : 0f;
+            transform.localRotation = Quaternion.Euler(0f, 0f, z);
         }
 
         public void FitToCell(float cellSize)
@@ -75,6 +83,7 @@ namespace CandyCrush.View
             SetAlpha(1f);
             if (_baseScale > 0.0001f)
                 transform.localScale = Vector3.one * _baseScale;
+            ApplyOrientation();
         }
     }
 }
