@@ -20,6 +20,10 @@ namespace CandyCrush.View
         [SerializeField] float swapDuration = 0.18f;
         [SerializeField] float fallDuration = 0.22f;
         [SerializeField] float clearDuration = 0.15f;
+        [Tooltip("消除前缩到 clearShrinkScale 的时长")]
+        [SerializeField] float clearShrinkDuration = 0.1f;
+        [Tooltip("消除前缩到的相对基准缩放（0.1 = 缩小到原尺寸 10%）")]
+        [SerializeField] float clearShrinkScale = 0.1f;
 
         BoardModel _model;
         TileView[,] _views;
@@ -188,7 +192,35 @@ namespace CandyCrush.View
             if (step.ActivatedBoosters.Count > 0)
                 yield return _boosterFx.PlayActivations(step.ActivatedBoosters, this);
 
-            // --- 消除：立刻隐藏棋子，碎裂由 ClearBurstFx 承担 ---
+            // --- 消除前：匹配棋子先缩到 0.1，期间其他块不动 ---
+            var shrinking = new List<(TileView view, Vector3 fromScale, Vector3 toScale)>();
+            for (int i = 0; i < step.Cleared.Count; i++)
+            {
+                var p = step.Cleared[i];
+                var v = _views[p.Row, p.Col];
+                if (v == null) continue;
+                float baseS = v.BaseScale;
+                var from = Vector3.one * baseS;
+                var to = Vector3.one * (baseS * Mathf.Clamp(clearShrinkScale, 0.01f, 1f));
+                shrinking.Add((v, from, to));
+                v.transform.localScale = from; // 若被选中放大，先回到基准再缩
+            }
+
+            float shrinkDur = clearShrinkDuration > 0.01f ? clearShrinkDuration : 0.3f;
+            float t = 0f;
+            while (t < shrinkDur)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / shrinkDur);
+                u = u * u * (3f - 2f * u);
+                foreach (var s in shrinking)
+                    if (s.view != null) s.view.transform.localScale = Vector3.Lerp(s.fromScale, s.toScale, u);
+                yield return null;
+            }
+            foreach (var s in shrinking)
+                if (s.view != null) s.view.transform.localScale = s.toScale;
+
+            // --- 消除碎裂 + 同步下落（缩放完后才开始）---
             var toDestroy = new List<TileView>();
             for (int i = 0; i < step.Cleared.Count; i++)
             {
@@ -208,17 +240,6 @@ namespace CandyCrush.View
                 toDestroy.Add(v);
             }
 
-            float t = 0f;
-            while (t < clearDur)
-            {
-                t += Time.deltaTime;
-                yield return null;
-            }
-
-            foreach (var view in toDestroy)
-                DestroyTile(view);
-
-            // --- 下落 ---
             var falling = new List<(TileView view, Vector3 from, Vector3 to)>();
             var fallList = new List<FallMove>(step.Falls);
             fallList.Sort((a, b) =>
@@ -269,8 +290,10 @@ namespace CandyCrush.View
                 spawning.Add((v, start, dest));
             }
 
+            // 碎裂与下落同时进行；至少等 clearDur，保证碎裂有可见首帧
+            float animDur = Mathf.Max(fallDur, clearDur);
             t = 0f;
-            while (t < fallDur)
+            while (t < animDur)
             {
                 t += Time.deltaTime;
                 float u = Mathf.Clamp01(t / fallDur);
@@ -287,7 +310,9 @@ namespace CandyCrush.View
             foreach (var s in spawning)
                 if (s.view != null) s.view.transform.localPosition = s.to;
 
-            // 轻量对齐即可，不再全盘重建
+            foreach (var view in toDestroy)
+                DestroyTile(view);
+
             ReconcileViews();
         }
 

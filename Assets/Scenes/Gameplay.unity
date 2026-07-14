@@ -275,6 +275,8 @@ MonoBehaviour:
   swapDuration: 0.18
   fallDuration: 0.22
   clearDuration: 0.15
+  clearShrinkDuration: 0.1
+  clearShrinkScale: 0.1
 --- !u!4 &840395388
 Transform:
   m_ObjectHideFlags: 0

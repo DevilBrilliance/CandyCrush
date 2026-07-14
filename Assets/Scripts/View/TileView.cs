@@ -47,6 +47,15 @@ namespace CandyCrush.View
 
         public void CacheBaseScale() => _baseScale = transform.localScale.x;
 
+        public float BaseScale
+        {
+            get
+            {
+                if (_baseScale <= 0.0001f) CacheBaseScale();
+                return _baseScale;
+            }
+        }
+
         public void SetSelected(bool selected)
         {
             if (_baseScale <= 0.0001f) CacheBaseScale();
