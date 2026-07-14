@@ -61,9 +61,13 @@ SpriteAtlas:
     - bbcd786500444a2cb9c778c9a1578425: 21300000
     - 75003ab65e694abb92f12d03b6cbec82: 21300000
     - 196a4f38cc3841dabe87822492a6f1f3: 21300000
+    - 2cc65bf8f5f546389fad053a3f22616e: 21300000
+    - fc0017fb60d09184da6844d8bd5e31e4: 21300000
     - 1fb866cc35544bdd988dd36ca7f77dcf: 21300000
     - 6aeadf0d2bc344c992af781740636eaf: 21300000
     - eaed0e2db073423788233d089185d728: 21300000
+    - eb9c41fd2589dfa4b902249b278205e2: 21300000
+    - 8029db6e2b134b85a10e101c125b421a: 21300000
   m_MasterAtlas: {fileID: 0}
   m_PackedSprites:
   - {fileID: 21300000, guid: 116fbb00703f47db8b8d3d07e1c5edea, type: 3}
@@ -76,9 +80,13 @@ SpriteAtlas:
   - {fileID: 21300000, guid: bbcd786500444a2cb9c778c9a1578425, type: 3}
   - {fileID: 21300000, guid: 75003ab65e694abb92f12d03b6cbec82, type: 3}
   - {fileID: 21300000, guid: 196a4f38cc3841dabe87822492a6f1f3, type: 3}
+  - {fileID: 21300000, guid: 2cc65bf8f5f546389fad053a3f22616e, type: 3}
+  - {fileID: 21300000, guid: fc0017fb60d09184da6844d8bd5e31e4, type: 3}
   - {fileID: 21300000, guid: 1fb866cc35544bdd988dd36ca7f77dcf, type: 3}
   - {fileID: 21300000, guid: 6aeadf0d2bc344c992af781740636eaf, type: 3}
   - {fileID: 21300000, guid: eaed0e2db073423788233d089185d728, type: 3}
+  - {fileID: 21300000, guid: eb9c41fd2589dfa4b902249b278205e2, type: 3}
+  - {fileID: 21300000, guid: 8029db6e2b134b85a10e101c125b421a, type: 3}
   m_PackedSpriteNamesToIndex:
   - candy_1_6_1
   - candy_bg_01
@@ -90,9 +98,13 @@ SpriteAtlas:
   - boost_candy_hv
   - candy_bg_01
   - tile_suitcase
+  - tileA
+  - UIpanel_inside
   - candy_1_2_1
   - candy_1_5_1
   - bg_gua6
+  - UIpanel_outside
+  - tileB
   m_RenderDataMap: {}
   m_Tag: Atlas_Tiles
   m_IsVariant: 0

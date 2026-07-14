@@ -23,6 +23,10 @@ namespace CandyCrush.Data
 
         public Entry[] entries;
         public Sprite boardCellSprite;
+        [Tooltip("棋盘交错格（深色），与 boardCellSprite 组成格纹")]
+        public Sprite boardCellAltSprite;
+        [Tooltip("棋盘底板/外框")]
+        public Sprite boardPanelSprite;
         public ClearParticleSet[] clearParticles;
         public Sprite clearFlashSprite;
 

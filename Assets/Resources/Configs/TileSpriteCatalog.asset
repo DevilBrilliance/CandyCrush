@@ -33,8 +33,9 @@ MonoBehaviour:
     sprite: {fileID: 21300000, guid: 7255fb2427fd4f1a8cce72c7fd0738c5, type: 3}
   - type: 24
     sprite: {fileID: 21300000, guid: 7255fb2427fd4f1a8cce72c7fd0738c5, type: 3}
-  boardCellSprite: {fileID: 21300000, guid: f0b8308158d2453c936fd0c5a84d758f, type: 3}
-  boardFrameSprite: {fileID: 21300000, guid: fa8d8647414e4ba18d6d3ab9f19a5a26, type: 3}
+  boardCellSprite: {fileID: 21300000, guid: 2cc65bf8f5f546389fad053a3f22616e, type: 3}
+  boardCellAltSprite: {fileID: 21300000, guid: 8029db6e2b134b85a10e101c125b421a, type: 3}
+  boardPanelSprite: {fileID: 21300000, guid: eb9c41fd2589dfa4b902249b278205e2, type: 3}
   clearParticles:
   - type: 1
     shards:

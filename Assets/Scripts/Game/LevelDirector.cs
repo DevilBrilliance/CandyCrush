@@ -60,6 +60,8 @@ namespace CandyCrush.Game
             if (_cam == null) return;
             _cam.orthographic = true;
             _cam.orthographicSize = portraitOrthoSize;
+            // 无夜景贴图：用相机清屏色作深色底
+            _cam.backgroundColor = new Color(0.04f, 0.06f, 0.10f, 1f);
             FitBackground();
         }
 

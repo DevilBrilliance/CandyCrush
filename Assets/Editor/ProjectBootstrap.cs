@@ -267,7 +267,10 @@ namespace CandyCrush.EditorTools
                 new TileSpriteCatalog.Entry { type = TileType.Propeller, sprite = Load($"{ArtRoot}/Sprites/Tiles/boost_candy_rainbow.png") },
                 new TileSpriteCatalog.Entry { type = TileType.ColorBall, sprite = Load($"{ArtRoot}/Sprites/Tiles/boost_candy_rainbow.png") },
             };
-            catalog.boardCellSprite = Load($"{ArtRoot}/Sprites/Board/candy_bg_01.png");
+            catalog.boardCellSprite = Load($"{ArtRoot}/Sprites/Board/tileA.png");
+            catalog.boardCellAltSprite = Load($"{ArtRoot}/Sprites/Board/tileB.png");
+            catalog.boardPanelSprite = Load($"{ArtRoot}/Sprites/Board/UIpanel_outside.png")
+                                        ?? Load($"{ArtRoot}/Sprites/Board/candy_bg_01.png");
             catalog.clearFlashSprite = Load($"{ArtRoot}/Sprites/Vfx/candy_12_particle.png");
             catalog.clearParticles = new[]
             {
@@ -319,16 +322,10 @@ namespace CandyCrush.EditorTools
             var cam = Camera.main;
             cam.orthographic = true;
             cam.orthographicSize = 8.2f;
-            cam.backgroundColor = new Color(0.05f, 0.08f, 0.12f);
+            cam.backgroundColor = new Color(0.04f, 0.06f, 0.10f);
             cam.transform.position = new Vector3(0f, 0f, -10f);
 
-            // Background
-            var bgGo = new GameObject("Background");
-            var bgSr = bgGo.AddComponent<SpriteRenderer>();
-            bgSr.sprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{ArtRoot}/Backgrounds/bg_street_night.jpg");
-            bgSr.sortingOrder = -20;
-            FitSpriteToCamera(bgSr, cam);
-
+            // 不引入夜景贴图：仅用相机清屏色
             // Board root
             var boardRoot = new GameObject("Board");
             boardRoot.transform.position = new Vector3(0f, -0.6f, 0f);
@@ -383,7 +380,7 @@ namespace CandyCrush.EditorTools
             dirSo.FindProperty("winPanelPrefab").objectReferenceValue = uiPrefabs.win;
             dirSo.FindProperty("uiRoot").objectReferenceValue = canvasGo.transform;
             dirSo.FindProperty("atmosphereRoot").objectReferenceValue = boardRoot.transform;
-            dirSo.FindProperty("background").objectReferenceValue = bgSr;
+            dirSo.FindProperty("background").objectReferenceValue = null;
             dirSo.FindProperty("flow").objectReferenceValue = flow;
             dirSo.FindProperty("portraitOrthoSize").floatValue = 8.2f;
             dirSo.ApplyModifiedPropertiesWithoutUndo();
