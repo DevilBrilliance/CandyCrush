@@ -50,6 +50,7 @@ SpriteAtlas:
     isAtlasV2: 0
     cachedData: {fileID: 0}
     packedSpriteRenderDataKeys:
+    - c3e48b3044344565b641b9a0ebec1e87: 21300000
     - de6fc090e00375b4eadf6f26d85f9a4f: 21300000
     - 23b9c1f0c8383fc4dbd59272571957f7: 21300000
     - 003b79312c4d4ebb9b60ea075ecf6987: 21300000
@@ -77,6 +78,7 @@ SpriteAtlas:
     - e7a6c887e49a1d94584b1349704b8e7d: 21300000
     - efe6ad87a89f7b440ad7b59ec2903a29: 21300000
     - b01b44978f75712468add9cce7d702e5: 21300000
+    - 027d6608e7ca49378845be037e7208ff: 21300000
     - e87f4d5871464c2f9e119c58452aab4b: 21300000
     - 23fff319663bc4740857bb0627597858: 21300000
     - be17d7396016434e86f960d4bc77febf: 21300000
@@ -86,14 +88,22 @@ SpriteAtlas:
     - 659d117bba4145bc8e4d90b1871a57db: 21300000
     - b57c668b63640304783e603c4c977a70: 21300000
     - 20b98ebb035a4595ae402602a1ab587f: 21300000
+    - 0e0247cb08714eb3897267394f3573fb: 21300000
+    - 5887928c7afe45d9be9721dbf7183557: 21300000
     - 9862c88c1d684681b1b73eee42cebd8a: 21300000
     - 59267a0d9bc2489dbc14281bb80995a9: 21300000
     - f6f8906dad7b472384ead680fd053673: 21300000
     - 9c6c83adbfa7bab4daa40a8752c7159e: 21300000
+    - 5882480e7ca44b7b84782656e8f7790d: 21300000
+    - f8dc8c1e8e7548448b03ece43513e6d6: 21300000
     - 7b513e1e59cb04a44833012a41625198: 21300000
     - feb5cd5ee932d744cb692dfa023a956e: 21300000
+    - 0e6a9f8ea8764e39800049e6d1cdc837: 21300000
+    - 25c96a1faf5c41ce89bdf5a753d0d948: 21300000
+    - 44c4d26ffe864d5398352ca317f2fca0: 21300000
   m_MasterAtlas: {fileID: 0}
   m_PackedSprites:
+  - {fileID: 21300000, guid: c3e48b3044344565b641b9a0ebec1e87, type: 3}
   - {fileID: 21300000, guid: de6fc090e00375b4eadf6f26d85f9a4f, type: 3}
   - {fileID: 21300000, guid: 23b9c1f0c8383fc4dbd59272571957f7, type: 3}
   - {fileID: 21300000, guid: 003b79312c4d4ebb9b60ea075ecf6987, type: 3}
@@ -121,6 +131,7 @@ SpriteAtlas:
   - {fileID: 21300000, guid: e7a6c887e49a1d94584b1349704b8e7d, type: 3}
   - {fileID: 21300000, guid: efe6ad87a89f7b440ad7b59ec2903a29, type: 3}
   - {fileID: 21300000, guid: b01b44978f75712468add9cce7d702e5, type: 3}
+  - {fileID: 21300000, guid: 027d6608e7ca49378845be037e7208ff, type: 3}
   - {fileID: 21300000, guid: e87f4d5871464c2f9e119c58452aab4b, type: 3}
   - {fileID: 21300000, guid: 23fff319663bc4740857bb0627597858, type: 3}
   - {fileID: 21300000, guid: be17d7396016434e86f960d4bc77febf, type: 3}
@@ -130,13 +141,21 @@ SpriteAtlas:
   - {fileID: 21300000, guid: 659d117bba4145bc8e4d90b1871a57db, type: 3}
   - {fileID: 21300000, guid: b57c668b63640304783e603c4c977a70, type: 3}
   - {fileID: 21300000, guid: 20b98ebb035a4595ae402602a1ab587f, type: 3}
+  - {fileID: 21300000, guid: 0e0247cb08714eb3897267394f3573fb, type: 3}
+  - {fileID: 21300000, guid: 5887928c7afe45d9be9721dbf7183557, type: 3}
   - {fileID: 21300000, guid: 9862c88c1d684681b1b73eee42cebd8a, type: 3}
   - {fileID: 21300000, guid: 59267a0d9bc2489dbc14281bb80995a9, type: 3}
   - {fileID: 21300000, guid: f6f8906dad7b472384ead680fd053673, type: 3}
   - {fileID: 21300000, guid: 9c6c83adbfa7bab4daa40a8752c7159e, type: 3}
+  - {fileID: 21300000, guid: 5882480e7ca44b7b84782656e8f7790d, type: 3}
+  - {fileID: 21300000, guid: f8dc8c1e8e7548448b03ece43513e6d6, type: 3}
   - {fileID: 21300000, guid: 7b513e1e59cb04a44833012a41625198, type: 3}
   - {fileID: 21300000, guid: feb5cd5ee932d744cb692dfa023a956e, type: 3}
+  - {fileID: 21300000, guid: 0e6a9f8ea8764e39800049e6d1cdc837, type: 3}
+  - {fileID: 21300000, guid: 25c96a1faf5c41ce89bdf5a753d0d948, type: 3}
+  - {fileID: 21300000, guid: 44c4d26ffe864d5398352ca317f2fca0, type: 3}
   m_PackedSpriteNamesToIndex:
+  - royal_leaves_feiji_mohu
   - efx_arrow_1
   - efx_arrow_2
   - particle_die_candy_1_2_01
@@ -164,6 +183,7 @@ SpriteAtlas:
   - efx_Rainbowefx
   - efx_candy_27_1
   - candy_12_particle
+  - royal_leaves_feiji
   - particle_die_candy_1_4_03
   - efx_Rainbowefx_03
   - particle_die_candy_1_3_02
@@ -173,12 +193,19 @@ SpriteAtlas:
   - particle_die_candy_1_3_03
   - efx_smoke_1
   - particle_die_candy_flower_small_2
+  - royal_leaves_lizi1
+  - royal_leaves_shu
   - particle_die_candy_1_4_04
   - particle_die_candy_1_1_02
   - particle_other_X_cross
   - particle_die_star_2
+  - royal_leaves_lizi3
+  - royal_leaves_X
   - particle_die_star_1
   - UIpanel_starlight
+  - royal_leaves_lizi2
+  - royal_leaves_X_mohu
+  - royal_leaves_heng
   m_RenderDataMap: {}
   m_Tag: Atlas_Vfx
   m_IsVariant: 0

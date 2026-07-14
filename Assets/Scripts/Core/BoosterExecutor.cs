@@ -19,7 +19,8 @@ namespace CandyCrush.Core
     /// <summary>道具效果：火箭清行/列、炸弹 5×5、螺旋桨十字清格后追箱、彩球同色。</summary>
     public static class BoosterExecutor
     {
-        public static List<GridPos> GetClearCells(BoardModel board, int row, int col, TileType booster, TileType partnerColor)
+        public static List<GridPos> GetClearCells(BoardModel board, int row, int col, TileType booster, TileType partnerColor,
+            GridPos? propellerTarget = null)
         {
             var cells = new List<GridPos>();
             if (!board.InBounds(row, col)) return cells;
@@ -47,8 +48,10 @@ namespace CandyCrush.Core
                     TryAdd(board, cells, row + 1, col);
                     TryAdd(board, cells, row, col - 1);
                     TryAdd(board, cells, row, col + 1);
-                    // 再追箱（或其它目标格）
-                    var target = FindPropellerTarget(board, row, col);
+                    // 再追箱（可由外部指定，避免多螺旋桨抢同一目标）
+                    var target = propellerTarget.HasValue
+                        ? propellerTarget
+                        : FindPropellerTarget(board, row, col);
                     if (target.HasValue)
                         AddUnique(cells, target.Value);
                     break;
@@ -68,32 +71,43 @@ namespace CandyCrush.Core
             return cells;
         }
 
-        public static GridPos? FindPropellerTarget(BoardModel board, int selfR, int selfC)
+        /// <param name="exclude">已被其它螺旋桨占用的目标，避免多桨追同一格。</param>
+        public static GridPos? FindPropellerTarget(BoardModel board, int selfR, int selfC, ICollection<GridPos> exclude = null)
         {
-            // 优先行李箱（不在十字邻格内也要追）
+            bool Excluded(int r, int c)
+            {
+                if (exclude == null || exclude.Count == 0) return false;
+                var p = new GridPos(r, c);
+                foreach (var e in exclude)
+                    if (e.Equals(p)) return true;
+                return false;
+            }
+
+            // 优先行李箱
             GridPos? bestSuit = null;
             int bestDist = int.MaxValue;
             for (int r = 0; r < board.Rows; r++)
             for (int c = 0; c < board.Cols; c++)
             {
                 if (r == selfR && c == selfC) continue;
-                // 十字邻格已由十字炸掉，优先追更远的箱
+                if (Excluded(r, c)) continue;
                 if (board.Get(r, c) != TileType.Suitcase) continue;
                 int d = Abs(r - selfR) + Abs(c - selfC);
                 if (d < bestDist) { bestDist = d; bestSuit = new GridPos(r, c); }
             }
             if (bestSuit.HasValue) return bestSuit;
 
-            // 其次任意非空非自身（避开十字邻格优先找更远）
+            // 其次任意非空非自身（避开十字邻格）
             GridPos? bestOther = null;
             bestDist = int.MaxValue;
             for (int r = 0; r < board.Rows; r++)
             for (int c = 0; c < board.Cols; c++)
             {
                 if (r == selfR && c == selfC) continue;
+                if (Excluded(r, c)) continue;
                 if (board.Get(r, c) == TileType.Empty) continue;
                 int d = Abs(r - selfR) + Abs(c - selfC);
-                if (d <= 1) continue; // 跳过十字已覆盖的格
+                if (d <= 1) continue;
                 if (d < bestDist) { bestDist = d; bestOther = new GridPos(r, c); }
             }
             if (bestOther.HasValue) return bestOther;
@@ -103,6 +117,7 @@ namespace CandyCrush.Core
             for (int c = 0; c < board.Cols; c++)
             {
                 if (r == selfR && c == selfC) continue;
+                if (Excluded(r, c)) continue;
                 if (board.Get(r, c) != TileType.Empty)
                     return new GridPos(r, c);
             }

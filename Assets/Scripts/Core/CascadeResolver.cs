@@ -81,9 +81,17 @@ namespace CandyCrush.Core
             if (!TileTypeUtil.IsBooster(booster)) return result;
 
             Round++;
-            var clearSet = BoosterExecutor.GetClearCells(board, row, col, booster, partnerColor);
-            RecordActivation(result, board, row, col, booster);
-            ExpandNestedBoosters(board, clearSet, partnerColor, result);
+            var claimedPropTargets = new HashSet<GridPos>();
+            GridPos? propTarget = null;
+            if (booster == TileType.Propeller)
+            {
+                propTarget = BoosterExecutor.FindPropellerTarget(board, row, col, claimedPropTargets);
+                if (propTarget.HasValue) claimedPropTargets.Add(propTarget.Value);
+            }
+
+            var clearSet = BoosterExecutor.GetClearCells(board, row, col, booster, partnerColor, propTarget);
+            RecordActivation(result, booster, row, col, propTarget);
+            ExpandNestedBoosters(board, clearSet, partnerColor, result, claimedPropTargets);
 
             ApplyClear(board, clearSet, result);
             ApplyGravityAndSpawn(board, result);
@@ -97,6 +105,10 @@ namespace CandyCrush.Core
             var a = board.Get(r0, c0);
             var b = board.Get(r1, c1);
 
+            // 两桨互撞：同时激活，各追不同箱子
+            if (a == TileType.Propeller && b == TileType.Propeller)
+                return StepDualPropellers(board, r0, c0, r1, c1);
+
             if (TileTypeUtil.IsBooster(a))
                 return StepBooster(board, r0, c0, b);
             if (TileTypeUtil.IsBooster(b))
@@ -105,8 +117,51 @@ namespace CandyCrush.Core
             return StepMatches(board);
         }
 
-        void ExpandNestedBoosters(BoardModel board, List<GridPos> clearSet, TileType partnerColor, CascadeStepResult result)
+        CascadeStepResult StepDualPropellers(BoardModel board, int r0, int c0, int r1, int c1)
         {
+            var result = new CascadeStepResult();
+            if (Round >= MaxRounds) return result;
+
+            Round++;
+            var claimed = new HashSet<GridPos>();
+            var clearSet = new List<GridPos>();
+
+            ActivateOnePropeller(board, result, clearSet, claimed, r0, c0);
+            ActivateOnePropeller(board, result, clearSet, claimed, r1, c1);
+
+            ExpandNestedBoosters(board, clearSet, TileType.Empty, result, claimed);
+            ApplyClear(board, clearSet, result);
+            ApplyGravityAndSpawn(board, result);
+            result.HadWork = true;
+            return result;
+        }
+
+        static void ActivateOnePropeller(BoardModel board, CascadeStepResult result, List<GridPos> clearSet,
+            HashSet<GridPos> claimed, int row, int col)
+        {
+            // 已进清列表的格子也视为占用（含另一桨十字扫到的箱）
+            for (int i = 0; i < clearSet.Count; i++)
+                claimed.Add(clearSet[i]);
+
+            var target = BoosterExecutor.FindPropellerTarget(board, row, col, claimed);
+            if (target.HasValue) claimed.Add(target.Value);
+
+            var cells = BoosterExecutor.GetClearCells(board, row, col, TileType.Propeller, TileType.Empty, target);
+            foreach (var p in cells)
+            {
+                claimed.Add(p);
+                bool exists = false;
+                for (int i = 0; i < clearSet.Count; i++)
+                    if (clearSet[i].Equals(p)) { exists = true; break; }
+                if (!exists) clearSet.Add(p);
+            }
+            RecordActivation(result, TileType.Propeller, row, col, target);
+        }
+
+        void ExpandNestedBoosters(BoardModel board, List<GridPos> clearSet, TileType partnerColor, CascadeStepResult result,
+            HashSet<GridPos> claimedPropTargets = null)
+        {
+            claimedPropTargets ??= new HashSet<GridPos>();
             var seen = new HashSet<GridPos>(clearSet);
             var queue = new Queue<GridPos>(clearSet);
             var recorded = new HashSet<GridPos>();
@@ -118,14 +173,20 @@ namespace CandyCrush.Core
                 var p = queue.Dequeue();
                 var t = board.Get(p.Row, p.Col);
                 if (!TileTypeUtil.IsBooster(t)) continue;
+                if (!recorded.Add(p)) continue;
 
-                if (recorded.Add(p))
+                GridPos? propTarget = null;
+                if (t == TileType.Propeller)
                 {
-                    var preview = BoosterExecutor.GetClearCells(board, p.Row, p.Col, t, partnerColor);
-                    RecordActivation(result, board, p.Row, p.Col, t);
+                    // 已被覆盖/已被其他桨锁定的箱不再选
+                    foreach (var s in seen)
+                        claimedPropTargets.Add(s);
+                    propTarget = BoosterExecutor.FindPropellerTarget(board, p.Row, p.Col, claimedPropTargets);
+                    if (propTarget.HasValue) claimedPropTargets.Add(propTarget.Value);
                 }
 
-                var extra = BoosterExecutor.GetClearCells(board, p.Row, p.Col, t, partnerColor);
+                RecordActivation(result, t, p.Row, p.Col, propTarget);
+                var extra = BoosterExecutor.GetClearCells(board, p.Row, p.Col, t, partnerColor, propTarget);
                 foreach (var e in extra)
                 {
                     if (seen.Add(e))
@@ -137,7 +198,7 @@ namespace CandyCrush.Core
             }
         }
 
-        static void RecordActivation(CascadeStepResult result, BoardModel board, int row, int col, TileType booster)
+        static void RecordActivation(CascadeStepResult result, TileType booster, int row, int col, GridPos? propTarget)
         {
             var act = new ActivatedBooster
             {
@@ -146,14 +207,10 @@ namespace CandyCrush.Core
                 HasTarget = false
             };
 
-            if (booster == TileType.Propeller)
+            if (booster == TileType.Propeller && propTarget.HasValue)
             {
-                var target = BoosterExecutor.FindPropellerTarget(board, row, col);
-                if (target.HasValue)
-                {
-                    act.Target = target.Value;
-                    act.HasTarget = true;
-                }
+                act.Target = propTarget.Value;
+                act.HasTarget = true;
             }
 
             result.ActivatedBoosters.Add(act);

@@ -13,10 +13,10 @@ namespace CandyCrush.Vfx
     /// </summary>
     public class BoosterFx : MonoBehaviour
     {
-        public const int SortingOrder = 120;
+        public const int SortingOrder = 920;
 
         [SerializeField] float rocketDuration = 0.52f;
-        [SerializeField] float propellerDuration = 0.85f;
+        [SerializeField] float propellerDuration = 1.05f;
         [SerializeField] float bombDuration = 0.62f;
         [SerializeField] float colorBallDuration = 0.4f;
         [SerializeField] float spawnPopDuration = 0.28f;
@@ -36,6 +36,11 @@ namespace CandyCrush.Vfx
         Sprite _flower;
         Sprite _flower2;
         Sprite _xCross;
+        Sprite _leavesX;
+        Sprite _leavesXBlur;
+        Sprite _leavesHeng;
+        Sprite _leavesShu;
+        Sprite _leavesLizi;
         static Material _mat;
         static Material _additiveMat;
         static Texture2D _whiteTex;
@@ -66,10 +71,15 @@ namespace CandyCrush.Vfx
             _bombShard = Load("particle_die_candy_27") ?? _star;
             _arrowUp = Load("efx_arrow_2") ?? _star;
             _arrowDown = Load("efx_arrow_1") ?? _arrowUp;
-            _propeller = Load("boost_candy_propeller") ?? Load("royal_leaves_feiji") ?? _rainbow;
+            _propeller = Load("royal_leaves_feiji") ?? Load("boost_candy_propeller") ?? _rainbow;
             _flower = Load("particle_die_candy_flower_small") ?? _star;
             _flower2 = Load("particle_die_candy_flower_small_1") ?? _flower;
             _xCross = Load("particle_other_X_cross") ?? GetShockRing();
+            _leavesX = Load("royal_leaves_X") ?? _xCross;
+            _leavesXBlur = Load("royal_leaves_X_mohu") ?? _leavesX;
+            _leavesHeng = Load("royal_leaves_heng") ?? _glow;
+            _leavesShu = Load("royal_leaves_shu") ?? _glow;
+            _leavesLizi = Load("royal_leaves_lizi1") ?? Load("royal_leaves_lizi2") ?? _flower;
         }
 
         static Sprite Load(string name)
@@ -85,7 +95,7 @@ namespace CandyCrush.Vfx
         public IEnumerator PlayActivations(IReadOnlyList<ActivatedBooster> activations, BoardView board)
         {
             if (activations == null || activations.Count == 0 || board == null) yield break;
-            if (_dot == null) LoadSprites();
+            if (_dot == null || _leavesX == null || _propeller == null) LoadSprites();
 
             float wait = 0f;
             for (int i = 0; i < activations.Count; i++)
@@ -317,94 +327,153 @@ namespace CandyCrush.Vfx
 
         IEnumerator PropellerCrossBurst(Vector3 origin, float cell)
         {
-            float dur = 0.32f;
+            // 明显十字：竖条 + 横条扫到邻格 + 中心 X 弹出（盖过飘雪层级）
+            float dur = 0.55f;
+            int order = SortingOrder + 20;
 
-            // 十字闪光
-            var cross = MakeSprite("PropCross", _xCross, origin, SortingOrder + 14, additive: true);
-            Tint(cross, new Color(1f, 0.95f, 0.7f, 1f));
-            if (cross != null) cross.transform.localScale = Vector3.one * (cell * 0.2f);
+            var blur = MakeSprite("PropXBlur", _leavesXBlur != null ? _leavesXBlur : _leavesX, origin, order, additive: true);
+            Tint(blur, new Color(1f, 1f, 1f, 0.9f));
+            if (blur != null) blur.transform.localScale = Vector3.one * (cell * 0.4f);
 
-            var core = MakeSprite("PropCore", _flash, origin, SortingOrder + 13, additive: true);
-            Tint(core, new Color(1f, 0.9f, 0.4f, 1f));
-            if (core != null) core.transform.localScale = Vector3.one * (cell * 0.35f);
+            var plus = MakeSprite("PropX", _leavesX != null ? _leavesX : _xCross, origin, order + 2);
+            Tint(plus, Color.white);
+            if (plus != null) plus.transform.localScale = Vector3.one * (cell * 0.35f);
 
-            // 四向花瓣 / 光束
+            // 整条横/竖光束（覆盖自身+上下 or 左右）
+            var barH = MakeSprite("PropBarH", _leavesHeng != null ? _leavesHeng : _glow, origin, order + 1);
+            Tint(barH, Color.white);
+            var barV = MakeSprite("PropBarV", _leavesShu != null ? _leavesShu : _glow, origin, order + 1);
+            Tint(barV, Color.white);
+            if (barH != null)
+            {
+                FitSpriteWorld(barH, cell * 0.4f, cell * 0.55f);
+            }
+            if (barV != null)
+            {
+                FitSpriteWorld(barV, cell * 0.55f, cell * 0.4f);
+            }
+
             Vector3[] dirs = { Vector3.up, Vector3.down, Vector3.left, Vector3.right };
-            var beams = new SpriteRenderer[4];
+            var tips = new SpriteRenderer[4];
             for (int i = 0; i < 4; i++)
             {
-                beams[i] = MakeSprite($"PropBeam{i}", _glow, origin, SortingOrder + 12, additive: true);
-                Tint(beams[i], new Color(1f, 0.65f, 0.95f, 0.95f));
+                tips[i] = MakeSprite($"PropTip{i}", _leavesLizi != null ? _leavesLizi : _star, origin, order + 3);
+                Tint(tips[i], Color.white);
+                if (tips[i] != null) tips[i].transform.localScale = Vector3.one * (cell * 0.45f);
             }
 
-            // 花瓣甩出
-            for (int i = 0; i < 4; i++)
-            {
-                var spr = (i & 1) == 0 ? _flower : _flower2;
-                SpawnFadingParticle(origin, spr, cell * 0.55f,
-                    Color.white, 0.35f, dirs[i] * cell * 3.2f, additive: true);
-                SpawnFadingParticle(origin, _star, cell * 0.3f,
-                    new Color(1f, 0.95f, 0.5f, 1f), 0.28f, dirs[i] * cell * 4f, additive: true);
-            }
+            // 中心飞机脉冲一下
+            var plane = MakeSprite("PropPulse", _propeller != null ? _propeller : _star, origin, order + 4);
+            Tint(plane, Color.white);
+            if (plane != null) plane.transform.localScale = Vector3.one * (cell * 0.9f);
 
             float t = 0f;
             while (t < dur)
             {
                 t += Time.deltaTime;
                 float u = Mathf.Clamp01(t / dur);
-                float ease = 1f - Mathf.Pow(1f - u, 2.2f);
+                float ease = 1f - Mathf.Pow(1f - u, 2.4f);
+                float pulse = Mathf.Sin(u * Mathf.PI);
 
-                if (cross != null)
+                // 横条拉到左右邻格，竖条拉到上下邻格
+                float arm = cell * Mathf.Lerp(0.35f, 3.05f, ease); // 约三格长
+                float thick = cell * Mathf.Lerp(0.55f, 0.85f, pulse);
+
+                if (barH != null)
                 {
-                    cross.transform.localScale = Vector3.one * (cell * Mathf.Lerp(0.4f, 2.6f, ease));
-                    cross.transform.rotation = Quaternion.Euler(0f, 0f, u * 45f);
-                    var c = cross.color;
-                    c.a = 1f - u;
-                    cross.color = c;
+                    barH.transform.position = origin;
+                    FitSpriteWorld(barH, arm, thick);
+                    var c = barH.color;
+                    c.a = u < 0.7f ? 1f : Mathf.Lerp(1f, 0f, (u - 0.7f) / 0.3f);
+                    barH.color = c;
                 }
-                if (core != null)
+                if (barV != null)
                 {
-                    core.transform.localScale = Vector3.one * (cell * Mathf.Lerp(0.5f, 1.8f, ease));
-                    var c = core.color;
-                    c.a = 1f - u;
-                    core.color = c;
+                    barV.transform.position = origin;
+                    FitSpriteWorld(barV, thick, arm);
+                    var c = barV.color;
+                    c.a = u < 0.7f ? 1f : Mathf.Lerp(1f, 0f, (u - 0.7f) / 0.3f);
+                    barV.color = c;
                 }
 
-                float reach = cell * Mathf.Lerp(0.3f, 1.15f, ease);
-                float thick = cell * (0.45f + 0.25f * Mathf.Sin(u * Mathf.PI));
+                if (plus != null)
+                {
+                    float ps = cell * Mathf.Lerp(0.5f, 1.8f, Mathf.Sin(Mathf.Clamp01(u * 1.2f) * Mathf.PI));
+                    plus.transform.localScale = Vector3.one * ps;
+                    plus.transform.rotation = Quaternion.Euler(0f, 0f, u * 25f);
+                    var c = plus.color;
+                    c.a = u < 0.55f ? 1f : Mathf.Lerp(1f, 0f, (u - 0.55f) / 0.45f);
+                    plus.color = c;
+                }
+                if (blur != null)
+                {
+                    blur.transform.localScale = Vector3.one * (cell * Mathf.Lerp(0.6f, 2.8f, ease));
+                    var c = blur.color;
+                    c.a = 0.85f * (1f - u);
+                    blur.color = c;
+                }
+                if (plane != null)
+                {
+                    plane.transform.localScale = Vector3.one * (cell * (0.85f + 0.35f * pulse));
+                    plane.transform.rotation = Quaternion.Euler(0f, 0f, u * 180f);
+                    var c = plane.color;
+                    c.a = 1f - u * 0.85f;
+                    plane.color = c;
+                }
+
                 for (int i = 0; i < 4; i++)
                 {
-                    if (beams[i] == null) continue;
-                    bool horizontal = dirs[i].x != 0f;
-                    beams[i].transform.position = origin + dirs[i] * (reach * 0.5f);
-                    beams[i].transform.localScale = horizontal
-                        ? new Vector3(reach, thick, 1f)
-                        : new Vector3(thick, reach, 1f);
-                    var c = beams[i].color;
-                    c.a = 0.95f * (1f - u * 0.5f);
-                    beams[i].color = c;
+                    if (tips[i] == null) continue;
+                    float d = cell * Mathf.Lerp(0.15f, 1.05f, ease);
+                    tips[i].transform.position = origin + dirs[i] * d;
+                    tips[i].transform.localScale = Vector3.one * (cell * (0.4f + 0.25f * pulse));
+                    var c = tips[i].color;
+                    c.a = 1f - u * 0.6f;
+                    tips[i].color = c;
+                }
+
+                // 中段再喷一波四向粒子
+                if (u > 0.15f && u < 0.55f && Random.value < 0.55f)
+                {
+                    int di = Random.Range(0, 4);
+                    SpawnFadingParticle(origin + dirs[di] * cell * Random.Range(0.2f, 0.9f),
+                        _leavesLizi != null ? _leavesLizi : _star,
+                        cell * Random.Range(0.25f, 0.45f),
+                        Color.white, 0.28f, dirs[di] * cell * 2.5f);
                 }
 
                 yield return null;
             }
 
-            if (cross != null) Destroy(cross.gameObject);
-            if (core != null) Destroy(core.gameObject);
-            for (int i = 0; i < beams.Length; i++)
-                if (beams[i] != null) Destroy(beams[i].gameObject);
+            if (blur != null) Destroy(blur.gameObject);
+            if (plus != null) Destroy(plus.gameObject);
+            if (barH != null) Destroy(barH.gameObject);
+            if (barV != null) Destroy(barV.gameObject);
+            if (plane != null) Destroy(plane.gameObject);
+            for (int i = 0; i < tips.Length; i++)
+                if (tips[i] != null) Destroy(tips[i].gameObject);
+        }
+
+        static void FitSpriteWorld(SpriteRenderer sr, float worldW, float worldH)
+        {
+            if (sr == null || sr.sprite == null) return;
+            var b = sr.sprite.bounds.size;
+            if (b.x < 0.0001f || b.y < 0.0001f) return;
+            sr.drawMode = SpriteDrawMode.Simple;
+            sr.transform.localScale = new Vector3(worldW / b.x, worldH / b.y, 1f);
         }
 
         IEnumerator PropellerFly(Vector3 from, Vector3 to, float cell)
         {
-            float dur = Mathf.Max(0.28f, propellerDuration - 0.32f);
+            float dur = Mathf.Max(0.35f, propellerDuration - 0.55f);
             var spr = _propeller != null ? _propeller : _star;
-            var flyer = MakeSprite("PropellerFly", spr, from, SortingOrder + 15);
-            flyer.transform.localScale = Vector3.one * (cell * 0.85f);
+            var flyer = MakeSprite("PropellerFly", spr, from, SortingOrder + 25);
+            flyer.transform.localScale = Vector3.one * (cell * 0.95f);
             Tint(flyer, Color.white);
 
-            var glow = MakeSprite("PropellerGlow", _glow, from, SortingOrder + 14, additive: true);
-            glow.transform.localScale = Vector3.one * (cell * 1.1f);
-            Tint(glow, new Color(1f, 0.55f, 0.95f, 0.85f));
+            var glow = MakeSprite("PropellerGlow", _glow, from, SortingOrder + 24, additive: true);
+            glow.transform.localScale = Vector3.one * (cell * 1.2f);
+            Tint(glow, new Color(1f, 0.85f, 0.35f, 0.9f));
 
             Vector3 mid = Vector3.Lerp(from, to, 0.45f);
             mid.y += cell * 1.25f;
@@ -420,24 +489,24 @@ namespace CandyCrush.Vfx
                 {
                     flyer.transform.position = pos;
                     flyer.transform.rotation = Quaternion.Euler(0f, 0f, u * 720f);
-                    flyer.transform.localScale = Vector3.one * (cell * (0.8f + 0.2f * Mathf.Sin(u * Mathf.PI)));
+                    flyer.transform.localScale = Vector3.one * (cell * (0.9f + 0.2f * Mathf.Sin(u * Mathf.PI)));
                 }
                 if (glow != null)
                 {
                     glow.transform.position = pos;
                     var c = glow.color;
-                    c.a = 0.7f * (1f - u * 0.35f);
+                    c.a = 0.75f * (1f - u * 0.35f);
                     glow.color = c;
                 }
 
-                if (Random.value < 0.65f)
-                    SpawnFadingParticle(pos, _flower, cell * 0.28f, Color.white, 0.25f, additive: true);
+                if (Random.value < 0.7f)
+                    SpawnFadingParticle(pos, _leavesLizi != null ? _leavesLizi : _flower, cell * 0.3f, Color.white, 0.25f);
 
                 yield return null;
             }
 
-            SpawnFadingParticle(to, _flash, cell * 1.2f, new Color(1f, 0.9f, 0.4f, 0.95f), 0.24f, additive: true);
-            SpawnFadingParticle(to, _xCross, cell * 1.4f, new Color(1f, 0.85f, 0.55f, 1f), 0.22f, additive: true);
+            SpawnFadingParticle(to, _flash, cell * 1.3f, new Color(1f, 0.9f, 0.4f, 1f), 0.24f, additive: true);
+            SpawnFadingParticle(to, _leavesX != null ? _leavesX : _xCross, cell * 1.2f, Color.white, 0.22f);
             if (flyer != null) Destroy(flyer.gameObject);
             if (glow != null) Destroy(glow.gameObject);
         }
