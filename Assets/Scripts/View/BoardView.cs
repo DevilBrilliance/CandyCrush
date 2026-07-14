@@ -34,6 +34,8 @@ namespace CandyCrush.View
         ClearBurstFx _clearFx;
         BoosterFx _boosterFx;
         Transform _cellBgRoot;
+        SimplePool<TileView> _tilePool;
+        Transform _tilePoolRoot;
 
         public BoardModel Model => _model;
         public TileSpriteCatalog Catalog => catalog;
@@ -64,7 +66,7 @@ namespace CandyCrush.View
         public void RebuildViews()
         {
             if (tileRoot == null) tileRoot = transform;
-            ClearChildren(tileRoot);
+            RecycleAllTileViews();
             _views = new TileView[_model.Rows, _model.Cols];
 
             for (int r = 0; r < _model.Rows; r++)
@@ -77,9 +79,10 @@ namespace CandyCrush.View
         }
 
         /// <summary>增量对齐 Model：只补洞/纠错/清残留，避免全盘 Destroy+新建。</summary>
-        public void SyncFromModel() => ReconcileViews();
+        public void SyncFromModel() => ReconcileViews(forceVisualReset: true);
 
-        public void ReconcileViews()
+        /// <param name="forceVisualReset">true=强制复位缩放/透明度/位置；cascade 末尾用 false，仅修类型不一致。</param>
+        public void ReconcileViews(bool forceVisualReset = true)
         {
             if (_model == null) return;
             if (tileRoot == null) tileRoot = transform;
@@ -112,6 +115,13 @@ namespace CandyCrush.View
                 if (view == null)
                 {
                     _views[r, c] = CreateTileView(type, r, c, CellLocal(r, c));
+                    continue;
+                }
+
+                if (!forceVisualReset)
+                {
+                    if (view.Row != r || view.Col != c)
+                        view.SetGridPos(r, c);
                     continue;
                 }
 
@@ -344,7 +354,8 @@ namespace CandyCrush.View
             if (landed.Count > 0)
                 yield return PlayLandShake(landed);
 
-            ReconcileViews();
+            // cascade 已主动同步视图；只做轻量纠错，避免全盘 Restore/写位置
+            ReconcileViews(forceVisualReset: false);
         }
 
         IEnumerator PlayLandShake(List<(TileView view, Vector3 restPos)> tiles)
@@ -388,13 +399,11 @@ namespace CandyCrush.View
                 sprite = CreateFallbackSprite(type);
             }
 
-            var go = new GameObject($"Tile_{row}_{col}_{type}");
-            go.transform.SetParent(tileRoot, false);
-            go.transform.localPosition = localPos;
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = sprite;
-            sr.sortingOrder = 10;
-            var view = go.AddComponent<TileView>();
+            EnsureTilePool();
+            var view = _tilePool.Rent();
+            view.transform.SetParent(tileRoot, false);
+            view.transform.localPosition = localPos;
+            view.transform.localRotation = Quaternion.identity;
             view.Setup(type, sprite, row, col, cellSize);
             return view;
         }
@@ -402,8 +411,52 @@ namespace CandyCrush.View
         void DestroyTile(TileView view)
         {
             if (view == null) return;
-            if (Application.isPlaying) Destroy(view.gameObject);
-            else DestroyImmediate(view.gameObject);
+            EnsureTilePool();
+            _tilePool.Release(view);
+        }
+
+        void RecycleAllTileViews()
+        {
+            if (_views != null)
+            {
+                for (int r = 0; r < _views.GetLength(0); r++)
+                for (int c = 0; c < _views.GetLength(1); c++)
+                {
+                    if (_views[r, c] == null) continue;
+                    DestroyTile(_views[r, c]);
+                    _views[r, c] = null;
+                }
+            }
+
+            // 只回收 TileView，勿误伤棋盘底板 / FX
+            if (tileRoot == null) return;
+            for (int i = tileRoot.childCount - 1; i >= 0; i--)
+            {
+                var child = tileRoot.GetChild(i);
+                if (child == _tilePoolRoot) continue;
+                var view = child.GetComponent<TileView>();
+                if (view != null) DestroyTile(view);
+            }
+        }
+
+        void EnsureTilePool()
+        {
+            if (_tilePool != null) return;
+            if (_tilePoolRoot == null)
+            {
+                var go = new GameObject("TilePool");
+                go.transform.SetParent(transform, false);
+                go.SetActive(false);
+                _tilePoolRoot = go.transform;
+            }
+
+            _tilePool = new SimplePool<TileView>(_tilePoolRoot, () =>
+            {
+                var go = new GameObject("Tile");
+                go.transform.SetParent(_tilePoolRoot, false);
+                go.AddComponent<SpriteRenderer>();
+                return go.AddComponent<TileView>();
+            }, prewarm: 32);
         }
 
         static Sprite CreateFallbackSprite(TileType type)
@@ -534,16 +587,5 @@ namespace CandyCrush.View
             sr.transform.localScale = Vector3.one;
         }
 
-        void ClearChildren(Transform root)
-        {
-            for (int i = root.childCount - 1; i >= 0; i--)
-            {
-                var child = root.GetChild(i).gameObject;
-                // 先摘掉，避免同帧立刻新建时 childCount 仍含待 Destroy 对象
-                child.transform.SetParent(null, false);
-                if (Application.isPlaying) Destroy(child);
-                else DestroyImmediate(child);
-            }
-        }
     }
 }

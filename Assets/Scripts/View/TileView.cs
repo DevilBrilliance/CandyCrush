@@ -27,7 +27,6 @@ namespace CandyCrush.View
             FitToCell(cellSize);
             CacheBaseScale();
             ApplyOrientation();
-            gameObject.name = $"Tile_{row}_{col}_{type}";
         }
 
         public void SetGridPos(int row, int col)

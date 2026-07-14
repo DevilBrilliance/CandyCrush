@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using CandyCrush.Common;
 using CandyCrush.Core;
 using CandyCrush.Data;
 using CandyCrush.View;
@@ -46,6 +47,11 @@ namespace CandyCrush.Vfx
         static Texture2D _whiteTex;
         static Texture2D _ringTex;
         static Sprite _ringSprite;
+        static Sprite _dotSprite;
+
+        SimplePool<SpriteRenderer> _spritePool;
+        Transform _poolRoot;
+        ParticleSystem _burstPs;
 
         public static BoosterFx Ensure(Transform parent)
         {
@@ -60,7 +66,7 @@ namespace CandyCrush.Vfx
 
         void LoadSprites()
         {
-            _dot = Load("boost_other_dot") ?? Load("particle_other_dot") ?? MakeDot(64);
+            _dot = Load("boost_other_dot") ?? Load("particle_other_dot") ?? CachedDot();
             _smoke = Load("efx_smoke_1") ?? Load("particle_smoke") ?? _dot;
             _star = Load("particle_die_star_1") ?? Load("particle_die_star_2") ?? _dot;
             _star2 = Load("particle_die_star_2") ?? _star;
@@ -311,12 +317,12 @@ namespace CandyCrush.Vfx
             SpawnFadingParticle((endA + endB) * 0.5f, _flash, cell * 1.4f,
                 new Color(1f, 0.95f, 0.6f, 1f), 0.22f, additive: true);
 
-            if (headA != null) Destroy(headA.gameObject);
-            if (headB != null) Destroy(headB.gameObject);
-            if (glowA != null) Destroy(glowA.gameObject);
-            if (glowB != null) Destroy(glowB.gameObject);
-            if (beamSoft != null) Destroy(beamSoft.gameObject);
-            if (beamCore != null) Destroy(beamCore.gameObject);
+            Release(headA);
+            Release(headB);
+            Release(glowA);
+            Release(glowB);
+            Release(beamSoft);
+            Release(beamCore);
         }
 
         IEnumerator PropellerCrossThenChase(Vector3 from, Vector3 to, float cell)
@@ -445,13 +451,13 @@ namespace CandyCrush.Vfx
                 yield return null;
             }
 
-            if (blur != null) Destroy(blur.gameObject);
-            if (plus != null) Destroy(plus.gameObject);
-            if (barH != null) Destroy(barH.gameObject);
-            if (barV != null) Destroy(barV.gameObject);
-            if (plane != null) Destroy(plane.gameObject);
+            Release(blur);
+            Release(plus);
+            Release(barH);
+            Release(barV);
+            Release(plane);
             for (int i = 0; i < tips.Length; i++)
-                if (tips[i] != null) Destroy(tips[i].gameObject);
+                Release(tips[i]);
         }
 
         static void FitSpriteWorld(SpriteRenderer sr, float worldW, float worldH)
@@ -507,8 +513,8 @@ namespace CandyCrush.Vfx
 
             SpawnFadingParticle(to, _flash, cell * 1.3f, new Color(1f, 0.9f, 0.4f, 1f), 0.24f, additive: true);
             SpawnFadingParticle(to, _leavesX != null ? _leavesX : _xCross, cell * 1.2f, Color.white, 0.22f);
-            if (flyer != null) Destroy(flyer.gameObject);
-            if (glow != null) Destroy(glow.gameObject);
+            Release(flyer);
+            Release(glow);
         }
 
         IEnumerator BombFlash(Vector3 origin, float cell)
@@ -617,10 +623,10 @@ namespace CandyCrush.Vfx
                 yield return null;
             }
 
-            if (flash != null) Destroy(flash.gameObject);
-            if (core != null) Destroy(core.gameObject);
-            if (ring != null) Destroy(ring.gameObject);
-            if (heat != null) Destroy(heat.gameObject);
+            Release(flash);
+            Release(core);
+            Release(ring);
+            Release(heat);
         }
 
         IEnumerator ColorBallPulse(Vector3 origin, float cell)
@@ -648,7 +654,7 @@ namespace CandyCrush.Vfx
                 yield return null;
             }
 
-            if (orb != null) Destroy(orb.gameObject);
+            Release(orb);
         }
 
         IEnumerator SpawnPop(Vector3 world, float cell, TileType type)
@@ -679,25 +685,94 @@ namespace CandyCrush.Vfx
                 }
                 yield return null;
             }
-            if (glow != null) Destroy(glow.gameObject);
+            Release(glow);
         }
 
         void SpawnFadingParticle(Vector3 pos, Sprite sprite, float size, Color color, float life,
             Vector3 velocity = default, bool additive = false)
         {
-            var sr = MakeSprite("P", sprite != null ? sprite : _dot, pos, SortingOrder + 8, additive);
+            // 纯圆点走 ParticleSystem，避免每颗粒子各开一条 Fade 协程
+            if (!additive && (sprite == null || sprite == _dot))
+            {
+                EmitBurst(pos, size, color, life, velocity);
+                return;
+            }
+
+            var sr = RentSprite(sprite != null ? sprite : _dot, pos, SortingOrder + 8, additive);
             if (sr == null) return;
             sr.transform.localScale = Vector3.one * size;
             Tint(sr, color);
             StartCoroutine(FadeMove(sr, life, velocity));
         }
 
+        void EmitBurst(Vector3 pos, float size, Color color, float life, Vector3 velocity)
+        {
+            EnsureBurstPs();
+            var ep = new ParticleSystem.EmitParams
+            {
+                position = pos,
+                startColor = color,
+                startSize = Mathf.Max(0.05f, size),
+                startLifetime = Mathf.Max(0.05f, life),
+                velocity = velocity
+            };
+            _burstPs.Emit(ep, 1);
+        }
+
+        void EnsureBurstPs()
+        {
+            if (_burstPs != null) return;
+            var go = new GameObject("BoosterBurstPs");
+            go.transform.SetParent(transform, false);
+            _burstPs = go.AddComponent<ParticleSystem>();
+            _burstPs.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+            var main = _burstPs.main;
+            main.playOnAwake = false;
+            main.loop = false;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 256;
+            main.startSpeed = 0f;
+            main.gravityModifier = 0.15f;
+            main.startLifetime = 0.3f;
+            main.startSize = 0.2f;
+            main.startColor = Color.white;
+
+            var emission = _burstPs.emission;
+            emission.enabled = false;
+
+            var shape = _burstPs.shape;
+            shape.enabled = false;
+
+            var colorOver = _burstPs.colorOverLifetime;
+            colorOver.enabled = true;
+            var grad = new Gradient();
+            grad.SetKeys(
+                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
+            colorOver.color = new ParticleSystem.MinMaxGradient(grad);
+
+            var sizeOver = _burstPs.sizeOverLifetime;
+            sizeOver.enabled = true;
+            sizeOver.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0.65f));
+
+            var renderer = go.GetComponent<ParticleSystemRenderer>();
+            renderer.sortingOrder = SortingOrder + 8;
+            var mat = new Material(GetDefaultMat()) { hideFlags = HideFlags.HideAndDontSave, name = "BoosterBurstPsMat" };
+            if (_dot != null && _dot.texture != null)
+                mat.mainTexture = _dot.texture;
+            renderer.material = mat;
+            _burstPs.Play();
+        }
+
         IEnumerator FadeMove(SpriteRenderer sr, float life, Vector3 velocity)
         {
             float t = 0f;
             var baseCol = sr.color;
+            var baseScale = sr.transform.localScale;
             while (t < life && sr != null)
             {
+                if (!sr.gameObject.activeSelf) yield break;
                 t += Time.deltaTime;
                 float u = Mathf.Clamp01(t / life);
                 sr.transform.position += velocity * Time.deltaTime;
@@ -705,25 +780,59 @@ namespace CandyCrush.Vfx
                 var c = baseCol;
                 c.a = baseCol.a * (1f - u);
                 sr.color = c;
-                sr.transform.localScale *= 0.978f;
+                sr.transform.localScale = baseScale * (1f - u * 0.35f);
                 yield return null;
             }
-            if (sr != null) Destroy(sr.gameObject);
+            if (sr != null && sr.gameObject.activeSelf)
+                Release(sr);
         }
 
         SpriteRenderer MakeTrailHead(string name, Sprite sprite, Vector3 pos, int order) =>
-            MakeSprite(name, sprite, pos, order, additive: true);
+            RentSprite(sprite, pos, order, additive: true);
 
-        SpriteRenderer MakeSprite(string name, Sprite sprite, Vector3 pos, int order, bool additive = false)
+        SpriteRenderer MakeSprite(string name, Sprite sprite, Vector3 pos, int order, bool additive = false) =>
+            RentSprite(sprite, pos, order, additive);
+
+        SpriteRenderer RentSprite(Sprite sprite, Vector3 pos, int order, bool additive = false)
         {
-            var go = new GameObject(name);
-            go.transform.SetParent(transform, false);
-            go.transform.position = pos;
-            var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = sprite != null ? sprite : MakeDot(32);
+            EnsurePool();
+            var sr = _spritePool.Rent();
+            sr.transform.SetParent(transform, false);
+            sr.transform.position = pos;
+            sr.transform.rotation = Quaternion.identity;
+            sr.transform.localScale = Vector3.one;
+            sr.sprite = sprite != null ? sprite : CachedDot();
             sr.sortingOrder = order;
             sr.sharedMaterial = additive ? GetAdditiveMat() : GetDefaultMat();
+            sr.color = Color.white;
+            sr.drawMode = SpriteDrawMode.Simple;
             return sr;
+        }
+
+        void Release(SpriteRenderer sr)
+        {
+            if (sr == null) return;
+            EnsurePool();
+            sr.sprite = null;
+            _spritePool.Release(sr);
+        }
+
+        void EnsurePool()
+        {
+            if (_spritePool != null) return;
+            if (_poolRoot == null)
+            {
+                var go = new GameObject("BoosterFxPool");
+                go.transform.SetParent(transform, false);
+                go.SetActive(false);
+                _poolRoot = go.transform;
+            }
+            _spritePool = new SimplePool<SpriteRenderer>(_poolRoot, () =>
+            {
+                var go = new GameObject("FxSprite");
+                go.transform.SetParent(_poolRoot, false);
+                return go.AddComponent<SpriteRenderer>();
+            }, prewarm: 24);
         }
 
         static Material GetDefaultMat()
@@ -785,8 +894,10 @@ namespace CandyCrush.Vfx
             return u * u * a + 2f * u * t * b + t * t * c;
         }
 
-        static Sprite MakeDot(int size)
+        static Sprite CachedDot()
         {
+            if (_dotSprite != null) return _dotSprite;
+            const int size = 32;
             if (_whiteTex == null)
             {
                 _whiteTex = new Texture2D(size, size, TextureFormat.RGBA32, false);
@@ -805,7 +916,8 @@ namespace CandyCrush.Vfx
                 _whiteTex.SetPixels32(px);
                 _whiteTex.Apply(false, true);
             }
-            return Sprite.Create(_whiteTex, new Rect(0, 0, _whiteTex.width, _whiteTex.height), new Vector2(0.5f, 0.5f), size);
+            _dotSprite = Sprite.Create(_whiteTex, new Rect(0, 0, _whiteTex.width, _whiteTex.height), new Vector2(0.5f, 0.5f), size);
+            return _dotSprite;
         }
     }
 }
