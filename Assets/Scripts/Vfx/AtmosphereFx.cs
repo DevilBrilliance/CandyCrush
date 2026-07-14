@@ -4,12 +4,14 @@ namespace CandyCrush.Vfx
 {
     /// <summary>
     /// 前景软边飘雪 + 背景斜向雨丝（朝向跟速度一致，左下）。
-    /// sorting：夜景 &lt; 雨丝 &lt; 棋盘0 &lt; 棋子10 &lt; 碎块100 &lt; 雪絮200
+    /// sorting：夜景(-20) &lt; 雨丝 &lt; 棋盘0 &lt; 棋子10 &lt; … &lt; 雪絮（世界最上层）
     /// </summary>
     public class AtmosphereFx : MonoBehaviour
     {
-        public const int RainSortingOrder = -5;
-        public const int SnowSortingOrder = 200;
+        // 紧贴夜景之上、棋盘之下（雨须高于夜景才能看见）
+        public const int RainSortingOrder = -18;
+        // 盖过棋子/碎块/道具/飞收集，世界层最前；Screen Space Overlay UI 仍在最上
+        public const int SnowSortingOrder = 900;
 
         [SerializeField] ParticleSystem snow;
         [SerializeField] ParticleSystem rain;
@@ -62,11 +64,14 @@ namespace CandyCrush.Vfx
             return fx;
         }
 
+        // 竖屏 ortho≈8.2 → 世界约 9.2×16.4；体积略大于全屏，开场就能铺满
+        static readonly Vector3 ScreenVolume = new Vector3(11.5f, 17.5f, 0.15f);
+
         static ParticleSystem BuildSnowFluff(Transform parent, int ignoreLayer)
         {
             var go = new GameObject("SnowFluff");
             go.transform.SetParent(parent, false);
-            go.transform.localPosition = new Vector3(0f, 8f, 0f);
+            go.transform.localPosition = Vector3.zero;
             if (ignoreLayer >= 0) go.layer = ignoreLayer;
 
             var ps = go.AddComponent<ParticleSystem>();
@@ -75,27 +80,30 @@ namespace CandyCrush.Vfx
             var main = ps.main;
             main.playOnAwake = false;
             main.loop = true;
-            main.startLifetime = TwoConst(4.5f, 7.5f);
+            main.prewarm = true;
+            // 寿命够长：飘出屏幕再回收，不做透明度淡出
+            main.startLifetime = TwoConst(18f, 28f);
             main.startSpeed = 0f;
-            main.startSize = TwoConst(0.12f, 0.32f);
+            main.startSize = TwoConst(0.22f, 0.52f);
             main.startRotation = TwoConst(0f, Mathf.PI * 2f);
             main.startColor = new ParticleSystem.MinMaxGradient(
-                new Color(1f, 1f, 1f, 0.55f),
-                new Color(1f, 1f, 1f, 0.95f));
-            main.maxParticles = 70;
+                new Color(1f, 1f, 1f, 0.75f),
+                new Color(1f, 1f, 1f, 1f));
+            main.maxParticles = 120;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             main.gravityModifier = 0f;
             main.scalingMode = ParticleSystemScalingMode.Hierarchy;
 
             var emission = ps.emission;
-            emission.rateOverTime = 11f;
+            emission.rateOverTime = 14f;
+            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 55, 70) });
 
             var shape = ps.shape;
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Box;
-            shape.scale = new Vector3(15f, 0.35f, 0.1f);
+            shape.scale = ScreenVolume;
 
-            SetVelocity(ps, -0.25f, 0.35f, -1.2f, -0.35f);
+            SetVelocity(ps, -0.2f, 0.3f, -0.95f, -0.3f);
 
             var rot = ps.rotationOverLifetime;
             rot.enabled = true;
@@ -103,19 +111,18 @@ namespace CandyCrush.Vfx
 
             var noise = ps.noise;
             noise.enabled = true;
-            noise.strength = 0.18f;
+            noise.strength = 0.16f;
             noise.frequency = 0.28f;
             noise.scrollSpeed = 0.1f;
             noise.damping = true;
             noise.octaveCount = 1;
 
             var colorOver = ps.colorOverLifetime;
-            colorOver.enabled = true;
-            colorOver.color = FadeGradient(0.12f, 0.72f);
+            colorOver.enabled = false;
 
             var sizeOver = ps.sizeOverLifetime;
             sizeOver.enabled = true;
-            sizeOver.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 0.75f, 1f, 1.05f));
+            sizeOver.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 0.85f, 1f, 1.05f));
 
             DisableSheet(ps);
             ApplyRenderer(go, SnowSortingOrder, GetSnowMaterial(), ParticleSystemRenderMode.Billboard);
@@ -126,7 +133,7 @@ namespace CandyCrush.Vfx
         {
             var go = new GameObject("SnowFine");
             go.transform.SetParent(parent, false);
-            go.transform.localPosition = new Vector3(0f, 8.2f, 0f);
+            go.transform.localPosition = Vector3.zero;
             if (ignoreLayer >= 0) go.layer = ignoreLayer;
 
             var ps = go.AddComponent<ParticleSystem>();
@@ -135,28 +142,29 @@ namespace CandyCrush.Vfx
             var main = ps.main;
             main.playOnAwake = false;
             main.loop = true;
-            main.startLifetime = TwoConst(3.5f, 6f);
+            main.prewarm = true;
+            main.startLifetime = TwoConst(14f, 22f);
             main.startSpeed = 0f;
-            main.startSize = TwoConst(0.02f, 0.06f);
+            main.startSize = TwoConst(0.04f, 0.11f);
             main.startColor = new ParticleSystem.MinMaxGradient(
-                new Color(1f, 1f, 1f, 0.4f),
-                new Color(1f, 1f, 1f, 0.9f));
-            main.maxParticles = 140;
+                new Color(1f, 1f, 1f, 0.5f),
+                new Color(1f, 1f, 1f, 0.95f));
+            main.maxParticles = 200;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
 
             var emission = ps.emission;
-            emission.rateOverTime = 24f;
+            emission.rateOverTime = 28f;
+            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 80, 110) });
 
             var shape = ps.shape;
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Box;
-            shape.scale = new Vector3(15f, 0.25f, 0.1f);
+            shape.scale = ScreenVolume;
 
-            SetVelocity(ps, -0.3f, 0.3f, -1.8f, -0.6f);
+            SetVelocity(ps, -0.25f, 0.25f, -1.35f, -0.45f);
 
             var colorOver = ps.colorOverLifetime;
-            colorOver.enabled = true;
-            colorOver.color = FadeGradient(0.08f, 0.7f);
+            colorOver.enabled = false;
 
             DisableSheet(ps);
             ApplyRenderer(go, SnowSortingOrder - 1, GetFineMaterial(), ParticleSystemRenderMode.Billboard);
@@ -167,7 +175,7 @@ namespace CandyCrush.Vfx
         {
             var go = new GameObject("RainStreaks");
             go.transform.SetParent(parent, false);
-            go.transform.localPosition = new Vector3(0f, 9.5f, 0f);
+            go.transform.localPosition = Vector3.zero;
             go.transform.localRotation = Quaternion.identity;
             if (ignoreLayer >= 0) go.layer = ignoreLayer;
 
@@ -177,39 +185,40 @@ namespace CandyCrush.Vfx
             var main = ps.main;
             main.playOnAwake = false;
             main.loop = true;
-            main.startLifetime = TwoConst(0.75f, 1.25f);
-            // 方向只走 VelocityOverLifetime，Stretch 会沿速度拉长 —— 朝向与运动一致
+            main.prewarm = true;
+            main.startLifetime = TwoConst(1.4f, 2.2f);
             main.startSpeed = 0f;
-            main.startSize = TwoConst(0.04f, 0.07f);
+            main.startSize = TwoConst(0.035f, 0.06f);
             main.startColor = new ParticleSystem.MinMaxGradient(
-                new Color(0.85f, 0.92f, 1f, 0.55f),
-                new Color(1f, 1f, 1f, 0.95f));
-            main.maxParticles = 240;
+                new Color(0.85f, 0.92f, 1f, 0.5f),
+                new Color(1f, 1f, 1f, 0.9f));
+            main.maxParticles = 220;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             main.gravityModifier = 0f;
             main.startRotation = 0f;
 
             var emission = ps.emission;
-            emission.rateOverTime = 85f;
+            emission.rateOverTime = 55f;
+            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 40, 60) });
 
             var shape = ps.shape;
             shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Box;
-            shape.scale = new Vector3(18f, 0.25f, 0.1f);
+            shape.scale = ScreenVolume;
 
-            // 左下：vx<0, vy<0 → 视觉应为「/」斜线，朝向跟运动一致
-            SetVelocity(ps, -7.5f, -5.0f, -16f, -11f);
+            // 左下，明显放慢
+            SetVelocity(ps, -2.8f, -1.6f, -5.5f, -3.2f);
 
             var colorOver = ps.colorOverLifetime;
             colorOver.enabled = true;
-            colorOver.color = FadeGradient(0.04f, 0.78f);
+            colorOver.color = FadeGradient(0.04f, 0.7f);
 
             DisableSheet(ps);
 
             var renderer = go.GetComponent<ParticleSystemRenderer>();
             renderer.renderMode = ParticleSystemRenderMode.Stretch;
-            renderer.lengthScale = 2.2f;
-            renderer.velocityScale = 0.06f;
+            renderer.lengthScale = 3.2f;
+            renderer.velocityScale = 0.12f;
             renderer.cameraVelocityScale = 0f;
             renderer.sortingOrder = RainSortingOrder;
             var rainMat = GetRainMaterial();
@@ -246,12 +255,18 @@ namespace CandyCrush.Vfx
         {
             var grad = new Gradient();
             grad.SetKeys(
-                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[]
+                {
+                    new GradientColorKey(Color.white, 0f),
+                    new GradientColorKey(Color.white, outStart),
+                    new GradientColorKey(Color.white, 1f)
+                },
                 new[]
                 {
                     new GradientAlphaKey(0f, 0f),
                     new GradientAlphaKey(1f, inEnd),
-                    new GradientAlphaKey(0.85f, outStart),
+                    new GradientAlphaKey(0.9f, outStart),
+                    new GradientAlphaKey(0.35f, Mathf.Lerp(outStart, 1f, 0.55f)),
                     new GradientAlphaKey(0f, 1f)
                 });
             return new ParticleSystem.MinMaxGradient(grad);
@@ -266,14 +281,15 @@ namespace CandyCrush.Vfx
         static Material GetSnowMaterial()
         {
             if (_snowMat != null) return _snowMat;
-            _snowMat = MakeParticleMat("AtmSnowFluffMat", GetClumpTexture(), additive: true);
+            // Alpha Blended 才能让 Color over Lifetime 的透明淡出生效（Additive 几乎不吃 alpha）
+            _snowMat = MakeParticleMat("AtmSnowFluffMat", GetClumpTexture(), additive: false);
             return _snowMat;
         }
 
         static Material GetFineMaterial()
         {
             if (_fineMat != null) return _fineMat;
-            _fineMat = MakeParticleMat("AtmSnowFineMat", GetDotTexture(), additive: true);
+            _fineMat = MakeParticleMat("AtmSnowFineMat", GetDotTexture(), additive: false);
             return _fineMat;
         }
 
@@ -352,8 +368,8 @@ namespace CandyCrush.Vfx
                     float s = Mathf.Clamp01(1f - d);
                     a = Mathf.Max(a, s * s * s);
                 }
-                // Additive：RGB 本身当亮度；周边必须是黑
-                _clumpTex.SetPixel(x, y, new Color(a, a, a, 1f));
+                // Alpha Blended：白芯 + alpha 软边，才能被粒子颜色淡出吃到
+                _clumpTex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
             }
             _clumpTex.Apply(false, true);
             return _clumpTex;
@@ -379,7 +395,7 @@ namespace CandyCrush.Vfx
                 float d = Mathf.Sqrt(dx * dx + dy * dy);
                 float a = Mathf.Clamp01(1f - d);
                 a = a * a * a;
-                _dotTex.SetPixel(x, y, new Color(a, a, a, 1f));
+                _dotTex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
             }
             _dotTex.Apply(false, true);
             return _dotTex;
