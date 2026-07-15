@@ -18,29 +18,59 @@ namespace CandyCrush.View
             var existing = Object.FindObjectOfType<Canvas>();
             if (existing != null)
             {
-                if (existing.renderMode != RenderMode.ScreenSpaceOverlay)
-                    existing.renderMode = RenderMode.ScreenSpaceOverlay;
-                if (existing.GetComponent<CanvasScaler>() == null)
-                {
-                    var scaler = existing.gameObject.AddComponent<CanvasScaler>();
-                    scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                    scaler.referenceResolution = new Vector2(1080, 1920);
-                    scaler.matchWidthOrHeight = 0.5f;
-                }
-                if (existing.GetComponent<GraphicRaycaster>() == null)
-                    existing.gameObject.AddComponent<GraphicRaycaster>();
-                return existing.rootCanvas != null ? existing.rootCanvas : existing;
+                var root = existing.rootCanvas != null ? existing.rootCanvas : existing;
+                if (root.renderMode != RenderMode.ScreenSpaceOverlay)
+                    root.renderMode = RenderMode.ScreenSpaceOverlay;
+                ConfigurePortraitScaler(root);
+                if (root.GetComponent<GraphicRaycaster>() == null)
+                    root.gameObject.AddComponent<GraphicRaycaster>();
+                return root;
             }
 
             var canvasGo = new GameObject("Canvas", typeof(RectTransform));
             var canvas = canvasGo.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            var scalerNew = canvasGo.AddComponent<CanvasScaler>();
-            scalerNew.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scalerNew.referenceResolution = new Vector2(1080, 1920);
-            scalerNew.matchWidthOrHeight = 0.5f;
+            ConfigurePortraitScaler(canvas);
             canvasGo.AddComponent<GraphicRaycaster>();
             return canvas;
+        }
+
+        /// <summary>竖屏 UI 缩放基准 1080×1920；宽高混合匹配，兼顾长屏/平板竖屏。</summary>
+        public static void ConfigurePortraitScaler(Canvas canvas)
+        {
+            if (canvas == null) return;
+            var scaler = canvas.GetComponent<CanvasScaler>();
+            if (scaler == null) scaler = canvas.gameObject.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080f, 1920f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            // 略偏向宽度：长机 UI 不至于过大，短机也不至于挤爆
+            scaler.matchWidthOrHeight = 0.4f;
+            scaler.referencePixelsPerUnit = 100f;
+        }
+
+        /// <summary>Canvas 下 SafeArea 容器，GoalHUD / WinPanel 挂这里。</summary>
+        public static RectTransform EnsureSafeArea(Canvas canvas)
+        {
+            if (canvas == null) return null;
+            ConfigurePortraitScaler(canvas);
+
+            var existing = canvas.transform.Find("SafeArea") as RectTransform;
+            if (existing == null)
+            {
+                var go = new GameObject("SafeArea", typeof(RectTransform));
+                go.transform.SetParent(canvas.transform, false);
+                existing = go.GetComponent<RectTransform>();
+                go.AddComponent<SafeAreaFitter>();
+            }
+            else if (existing.GetComponent<SafeAreaFitter>() == null)
+            {
+                existing.gameObject.AddComponent<SafeAreaFitter>();
+            }
+
+            var fitter = existing.GetComponent<SafeAreaFitter>();
+            if (fitter != null) fitter.Apply();
+            return existing;
         }
 
         public static void EnsureEventSystem()

@@ -56,6 +56,24 @@ namespace CandyCrush.View
         public TileSpriteCatalog Catalog => catalog;
         public LevelConfig Config => levelConfig;
         public float CellSizeSafe() => cellSize > 0.01f ? cellSize : 0.95f;
+        public Vector2 BoardOrigin => boardOrigin;
+
+        /// <summary>棋盘（含外框）世界包围盒，用于竖屏相机适配。</summary>
+        public Bounds GetBoardWorldBounds()
+        {
+            if (_model == null)
+                return new Bounds(transform.position, Vector3.one);
+
+            float cs = CellSizeSafe();
+            float pad = cs * 0.1f;
+            float border = cs * 0.07f;
+            float w = _model.Cols * cs + pad + border * 2f;
+            float h = _model.Rows * cs + pad + border * 2f;
+            var localCenter = new Vector3(boardOrigin.x, boardOrigin.y, 0f);
+            var worldCenter = transform.TransformPoint(localCenter);
+            var lossy = transform.lossyScale;
+            return new Bounds(worldCenter, new Vector3(w * Mathf.Abs(lossy.x), h * Mathf.Abs(lossy.y), 0.1f));
+        }
 
         /// <summary>炸弹：整盘震动（BoardBg / Fill / Cells / Tiles 都在根节点下）。</summary>
         public void PlayBombBoardShake() =>

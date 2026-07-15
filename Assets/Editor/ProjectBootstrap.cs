@@ -355,7 +355,8 @@ namespace CandyCrush.EditorTools
             canvasGo.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             var scaler = canvasGo.GetComponent<CanvasScaler>();
             scaler.referenceResolution = new Vector2(1080, 1920);
-            scaler.matchWidthOrHeight = 0.5f;
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.4f;
             canvasGo.AddComponent<GraphicRaycaster>();
 
             var uiPrefabs = CreateOrUpdateUiPrefabs(catalog);
