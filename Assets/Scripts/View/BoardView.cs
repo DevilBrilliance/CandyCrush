@@ -249,16 +249,10 @@ namespace CandyCrush.View
             var p1 = CellLocal(r1, c1);
             float dur = swapDuration > 0.01f ? swapDuration : 0.18f;
 
-            float t = 0f;
-            while (t < dur)
-            {
-                t += Time.deltaTime;
-                float u = Mathf.Clamp01(t / dur);
-                u = u * u * (3f - 2f * u);
-                if (a != null) a.transform.localPosition = Vector3.Lerp(p0, p1, u);
-                if (b != null) b.transform.localPosition = Vector3.Lerp(p1, p0, u);
-                yield return null;
-            }
+            yield return Tween.LocalSwap(
+                a != null ? a.transform : null, p0, p1,
+                b != null ? b.transform : null, p1, p0,
+                dur, Ease.SmoothStep);
 
             _views[r0, c0] = b;
             _views[r1, c1] = a;
@@ -291,7 +285,7 @@ namespace CandyCrush.View
                 yield return _boosterFx.PlayActivations(step.ActivatedBoosters, this);
 
             // --- 消除前：匹配棋子先缩到 0.1，期间其他块不动 ---
-            var shrinking = new List<(TileView view, Vector3 fromScale, Vector3 toScale)>();
+            var shrinkTweens = new List<(Transform target, Vector3 from, Vector3 to)>();
             for (int i = 0; i < step.Cleared.Count; i++)
             {
                 var p = step.Cleared[i];
@@ -300,23 +294,13 @@ namespace CandyCrush.View
                 float baseS = v.BaseScale;
                 var from = Vector3.one * baseS;
                 var to = Vector3.one * (baseS * Mathf.Clamp(clearShrinkScale, 0.01f, 1f));
-                shrinking.Add((v, from, to));
                 v.transform.localScale = from; // 若被选中放大，先回到基准再缩
+                shrinkTweens.Add((v.transform, from, to));
             }
 
             float shrinkDur = clearShrinkDuration > 0.01f ? clearShrinkDuration : 0.3f;
-            float t = 0f;
-            while (t < shrinkDur)
-            {
-                t += Time.deltaTime;
-                float u = Mathf.Clamp01(t / shrinkDur);
-                u = u * u * (3f - 2f * u);
-                foreach (var s in shrinking)
-                    if (s.view != null) s.view.transform.localScale = Vector3.Lerp(s.fromScale, s.toScale, u);
-                yield return null;
-            }
-            foreach (var s in shrinking)
-                if (s.view != null) s.view.transform.localScale = s.toScale;
+            if (shrinkTweens.Count > 0)
+                yield return Tween.LocalScaleMany(shrinkTweens, shrinkDur, Ease.SmoothStep);
 
             // --- 碎裂 + 下落 + 收箱同时开始 ---
             var toDestroy = new List<TileView>();
@@ -419,23 +403,27 @@ namespace CandyCrush.View
 
             // 碎裂持续播的同时做下落；至少撑满 clearDur，保证碎裂首帧可见
             float animDur = Mathf.Max(fallDur, clearDur);
-            t = 0f;
-            while (t < animDur)
-            {
-                t += Time.deltaTime;
-                float u = Mathf.Clamp01(t / fallDur);
-                u = u * u * (3f - 2f * u);
-                foreach (var f in falling)
-                    if (f.view != null) f.view.transform.localPosition = Vector3.Lerp(f.from, f.to, u);
-                foreach (var s in spawning)
-                    if (s.view != null) s.view.transform.localPosition = Vector3.Lerp(s.from, s.to, u);
-                yield return null;
-            }
-
+            var moveTweens = new List<(Transform target, Vector3 from, Vector3 to)>(falling.Count + spawning.Count);
             foreach (var f in falling)
-                if (f.view != null) f.view.transform.localPosition = f.to;
+                if (f.view != null) moveTweens.Add((f.view.transform, f.from, f.to));
             foreach (var s in spawning)
-                if (s.view != null) s.view.transform.localPosition = s.to;
+                if (s.view != null) moveTweens.Add((s.view.transform, s.from, s.to));
+
+            if (moveTweens.Count > 0)
+            {
+                yield return Tween.LocalMoveMany(moveTweens, fallDur, Ease.SmoothStep);
+                float pad = animDur - fallDur;
+                if (pad > 0.0001f)
+                {
+                    float w = 0f;
+                    while (w < pad) { w += Time.deltaTime; yield return null; }
+                }
+            }
+            else if (animDur > 0.0001f)
+            {
+                float w = 0f;
+                while (w < animDur) { w += Time.deltaTime; yield return null; }
+            }
 
             foreach (var view in toDestroy)
                 DestroyTile(view);
