@@ -74,29 +74,41 @@ namespace CandyCrush.Vfx
 
         void Build(int ignoreLayer)
         {
-            var rainShader = Shader.Find("CandyCrush/AtmosphereRain");
-            var snowShader = Shader.Find("CandyCrush/AtmosphereSnow");
-            if (rainShader == null || snowShader == null)
+            // Resources 材质会把 shader 打进包；纯 Shader.Find 在真机会被剥离
+            _rainMat = CreateRuntimeMat("Vfx/Materials/AtmRain", "CandyCrush/AtmosphereRain", "AtmRainMat");
+            _snowMat = CreateRuntimeMat("Vfx/Materials/AtmSnow", "CandyCrush/AtmosphereSnow", "AtmSnowMat");
+            if (_rainMat == null || _snowMat == null)
             {
-                Debug.LogError("[AtmosphereFx] Missing shaders CandyCrush/AtmosphereRain or AtmosphereSnow.");
+                Debug.LogError("[AtmosphereFx] Missing atmosphere shaders/materials in build.");
                 return;
             }
-
-            _rainMat = new Material(rainShader)
-            {
-                name = "AtmRainMat",
-                hideFlags = HideFlags.HideAndDontSave
-            };
-            _snowMat = new Material(snowShader)
-            {
-                name = "AtmSnowMat",
-                hideFlags = HideFlags.HideAndDontSave
-            };
 
             rainRenderer = CreateLayer("RainLayer", ignoreLayer, _rainMat, RainSortingOrder, out _rainTf);
             snowRenderer = CreateLayer("SnowLayer", ignoreLayer, _snowMat, SnowSortingOrder, out _snowTf);
 
             ApplyLook();
+        }
+
+        static Material CreateRuntimeMat(string resourcePath, string shaderName, string runtimeName)
+        {
+            var template = Resources.Load<Material>(resourcePath);
+            if (template != null && template.shader != null && template.shader.isSupported)
+            {
+                var m = new Material(template)
+                {
+                    name = runtimeName,
+                    hideFlags = HideFlags.HideAndDontSave
+                };
+                return m;
+            }
+
+            var shader = Shader.Find(shaderName);
+            if (shader == null) return null;
+            return new Material(shader)
+            {
+                name = runtimeName,
+                hideFlags = HideFlags.HideAndDontSave
+            };
         }
 
         void ApplyLook()

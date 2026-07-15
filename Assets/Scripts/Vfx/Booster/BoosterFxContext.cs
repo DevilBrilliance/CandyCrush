@@ -248,13 +248,35 @@ namespace CandyCrush.Vfx
         public static Material GetAdditiveMat()
         {
             if (_additiveMat != null) return _additiveMat;
-            var sh = Shader.Find("Legacy Shaders/Particles/Additive")
-                     ?? Shader.Find("Particles/Additive")
+
+            // Resources 材质保证自定义 Additive shader 打进 Android 包；
+            // 若退回 Sprites/Default，黑底发光图会整块发黑（真机常见）。
+            var template = Resources.Load<Material>("Vfx/Materials/SpriteAdditive");
+            if (template != null && template.shader != null)
+            {
+                _additiveMat = new Material(template)
+                {
+                    hideFlags = HideFlags.HideAndDontSave,
+                    name = "BoosterFxAdditive"
+                };
+                return _additiveMat;
+            }
+
+            var sh = Shader.Find("CandyCrush/SpriteAdditive")
                      ?? Shader.Find("Mobile/Particles/Additive")
-                     ?? Shader.Find("Sprites/Default");
+                     ?? Shader.Find("Particles/Additive")
+                     ?? Shader.Find("Legacy Shaders/Particles/Additive");
+            if (sh == null)
+            {
+                Debug.LogError("[BoosterFx] Additive shader missing in build; glow FX may render black.");
+                sh = Shader.Find("Sprites/Default");
+            }
+
             _additiveMat = new Material(sh) { hideFlags = HideFlags.HideAndDontSave, name = "BoosterFxAdditive" };
             if (_additiveMat.HasProperty("_TintColor"))
-                _additiveMat.SetColor("_TintColor", new Color(1f, 1f, 1f, 0.6f));
+                _additiveMat.SetColor("_TintColor", Color.white);
+            if (_additiveMat.HasProperty("_Color"))
+                _additiveMat.SetColor("_Color", Color.white);
             return _additiveMat;
         }
 
@@ -278,7 +300,8 @@ namespace CandyCrush.Vfx
                 float d = Mathf.Sqrt(dx * dx + dy * dy);
                 float a = Mathf.Clamp01(1f - Mathf.Abs(d - 0.72f) / 0.22f);
                 a = a * a;
-                _ringTex.SetPixel(x, y, new Color(a, a, a, 1f));
+                // 白 RGB + 透明环：Additive / Alpha 都能用；旧版灰 RGB + a=1 在 Alpha 混合下会整块发黑
+                _ringTex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
             }
             _ringTex.Apply(false, true);
             _ringSprite = Sprite.Create(_ringTex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
