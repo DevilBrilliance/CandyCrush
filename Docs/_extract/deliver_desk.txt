@@ -1,0 +1,267 @@
+程序开发二测 — 架构设计线交付说明
+项目：CandyCrush（Unity 三消 Demo）　｜　答题方向：架构设计线
+一、参考资料
+二测提供的图片/字体压缩包与一测资源约定一致。本 Demo 实际资源与说明如下。
+类型
+来源 / 路径
+说明
+棋子 / UI / 碎屑
+Desktop asset → Assets/Art + Atlas_Tiles/UI/Vfx
+已入库并打图集
+字体
+Assets/Art/Fonts
+缺省时用系统字体，不影响架构验证
+背景
+参考视频截帧
+夜景街景静态图
+参考视频
+Desktop/20260525-173242.mp4（约 43.5s）
+氛围、消除、道具、收箱、Great 对照
+音效（占位）
+事件位已留，clip 未齐
+运行可静音；不影响模块边界追踪
+二、任务目标
+沿用一测声明方向：架构设计线。在一测架构计划上交付可运行源码工程，使评审能从源码追踪核心模块边界与主流程；并附架构说明、扩展示例、自评。
+验收重心：Data / Core / View / Vfx / Game 边界清晰，以及「交换 → 连锁 → 目标 → 胜负」主流程可跑；不要求与视频逐帧一致。
+三、通用要求响应
+3.1 开发环境
+项
+内容
+引擎
+Unity（工程 Desktop/unity/CandyCrush）
+语言
+C#；Core 层零 UnityEngine
+UI / 配置
+UGUI；LevelConfig、TileSpriteCatalog（SO）
+氛围
+全屏 Shader：AtmosphereRain / AtmosphereSnow
+主场景
+Assets/Scenes/Gameplay.unity
+3.2 资源与占位
+缺失项
+影响
+是否阻塞架构验收
+音效 clip 未齐
+无听觉反馈
+否
+VfxConfig / AudioConfig SO 未全资产化
+调参多在代码/材质
+否
+3.3 AI 使用说明（必须）
+环节
+AI 做什么
+人工做什么
+视频机制提炼
+抽帧归纳草稿
+定稿：氛围/消除/道具/结算要点
+模块划分
+Data/Core/View/Vfx/Game 草案
+边界终审：表现不写 BoardModel
+实现与优化
+氛围 Shader、BoosterFx、池化/GC
+Play 手玩 + 对照视频复核
+本文档
+初稿起草
+对照架构案与工程改写差异与自评
+误报处理：与架构案冲突时以「架构案 + 可运行真值」为准（例：案中炸弹曾写 3×3，工程为贴近视频实现 5×5，自评记录）；过度表现改动由人工回退；性能告警按 9×8 演示规模判断是否必改。
+四、架构设计线交付
+4.1 源码工程 / 架构原型
+工程路径：c:\Users\22734\Desktop\unity\CandyCrush。编辑器打开 Gameplay 场景后 Play 即可运行。
+启动链：LevelDirector → LevelConfig/Catalog → BoardView → AtmosphereFx → GameFlowController.BeginLevel。
+路径
+模块类型
+主要类型
+Assets/Scripts/Data
+数据
+TileType、BoardModel、LevelConfig、TileSpriteCatalog
+Assets/Scripts/Core
+行为（纯 C#）
+MatchFinder、SwapValidator、ClearResolver、Gravity/Spawner、CascadeResolver、BoosterExecutor、ObjectiveTracker
+Assets/Scripts/View
+表现（棋盘/UI）
+BoardView、TileView、GoalHUD、WinPanel、SafeAreaFitter
+Assets/Scripts/Vfx
+表现（特效）
+AtmosphereFx、ClearBurstFx、ClearCollectFx、BoosterFx/*
+Assets/Scripts/Game
+流程
+LevelDirector、InputController、GameFlowController
+Assets/Scripts/Common
+共用
+EventBus、SimplePool、GridUtil
+Assets/Shaders
+表现
+AtmosphereRain、AtmosphereSnow
+依赖原则：表现/流程依赖行为与数据；禁止表现私自改写棋盘真值。BoardModel 为唯一盘面真值，BoardView 只镜像与播动画。
+4.2 架构说明
+4.2.1 核心模块职责
+类型
+职责
+代表模块
+数据
+定义“是什么”：类型、配置、棋盘快照
+BoardModel、LevelConfig、TileType
+行为
+定义“怎么算”：匹配、消除、下落、连锁、道具、目标
+MatchFinder、ClearResolver、CascadeResolver、BoosterExecutor
+表现
+定义“怎么演”：动画、特效、UI
+BoardView、AtmosphereFx、Clear*/BoosterFx、HUD
+流程
+定义“何时跑”：输入锁、开局、胜负
+GameFlowController、InputController、LevelDirector
+4.2.2 主流程（状态流）
+状态：Idle → Busy（交换/连锁播完）→ Idle；目标归零 → Won。
+步骤
+动作
+关键类
+1
+取相邻两格，Idle 才受理
+InputController
+2
+Busy；交换动画并写盘
+GameFlow + BoardView + BoardModel
+3
+匹配或道具激活一步
+CascadeResolver.Step*
+4
+播消除/道具/下落/收箱
+BoardView.PlayCascadeStep + Vfx
+5
+仍有匹配则继续，否则回 Idle
+GameFlow ResolveBoardRoutine
+6
+Remaining=0 则结算
+ObjectiveTracker → WinPanel/SettleFx
+4.2.3 数据流
+从
+到
+含义
+LevelConfig
+LevelDirector / GameFlow
+关卡尺寸、目标数、权重、彩球开关
+Input
+SwapValidator / Booster 分支
+请求交换或道具激活
+Swap / Clear / Gravity
+BoardModel
+唯一业务写盘入口
+CascadeResolver
+CascadeStepResult
+一步结果：Cleared、Falls、Spawns、ActivatedBoosters…
+CascadeStepResult
+BoardView + Vfx
+表现只消费步骤结果
+ObjectiveTracker
+EventBus → GoalHUD
+剩余目标刷新
+禁止：Vfx/View 直接 board.Set 做业务清盘。
+4.2.4 与参考视频对齐
+视频点
+工程对应
+竖屏盘面 + 顶栏收箱
+9×8 可配；GoalHUD；目标数可改视频值（如 33）
+常驻雨雪
+AtmosphereFx Shader；雨在盘下、雪在盘上、不挡点击
+消除碎裂 / 收箱
+ClearBurstFx、ClearCollectFx
+火箭 / 螺旋桨 / 炸弹
+BoosterExecutor + BoosterFx；炸弹 5×5（中心±2）
+Great 结算
+WinPanel + SettleFx
+4.2.5 扩展点
+扩展点
+改哪里
+关卡参数
+LevelConfig（尺寸/目标/权重/彩球/初始盘）
+新棋子或道具
+TileType → MatchFinder → BoosterExecutor → BoosterFx + Catalog
+氛围
+Atmosphere Shader / AtmosphereFx 参数
+UI 消息
+EventBus，不绑死具体面板
+性能
+SimplePool、Cascade 缓冲（不改规则语义）
+4.3 扩展示例
+示例 A：新增「冰冻」障碍
+模块
+文件 / 类
+改动要点
+数据
+TileType 或 CellFlags、BoardModel
+冰厚或 overlay
+行为
+ClearResolver、MatchFinder、CascadeResolver
+先破冰再消；步骤结果可加 DamagedIce
+表现
+BoardView/TileView 或 IceView、Vfx
+叠冰与破冰动画
+配置
+LevelConfig.initialBoard
+关卡放置冰块
+通常不改
+InputController、GoalHUD
+除非新目标类型
+示例 B：新增「彩虹导弹」道具（清对角线）
+模块
+文件 / 类
+改动要点
+数据
+TileType、BoosterType、BoosterUtil
+新枚举与映射
+行为
+MatchFinder.AnnotateBooster、BoosterExecutor
+生成条件 + 对角线清格
+表现
+BoosterFx + 新 DiagonalBoosterFx
+斜向拖尾
+资源
+TileSpriteCatalog + 美术
+道具图/碎屑
+通常不改
+GravitySystem、AtmosphereFx、WinPanel
+—
+4.4 自评说明
+已完成
+项
+状态
+分层工程 + Gameplay 可运行
+完成
+交换/匹配/下落/连锁/收箱/HUD/胜利
+完成
+火箭、螺旋桨、炸弹（逻辑+FX）；彩球开关
+完成
+雨雪氛围、消除碎屑、收箱飞入
+完成
+竖屏适配、池化与匹配/消除 GC 复用
+完成
+未完成 / 与架构案差异
+项
+说明
+音效
+AudioController + clip 未齐
+炸弹范围
+案中曾写 3×3；工程 5×5（对齐视频）
+Cascade 上限
+案中 20；工程 MaxRounds=64
+FxManager / Vfx·Audio SO
+未完全按文档落地，现为步骤结果驱动
+后置玩法
+双道具、冰/链、步数失败、多关等
+单测
+EditMode 未做满 T-020
+风险与下一步
+类型
+内容
+风险
+CascadeStepResult / MatchFinder 缓冲复用依赖“算完再播再算”
+风险
+BoardView 偏胖；Vfx↔View 无 asmdef 强制分层
+风险
+大气 Shader 在低端机仍可能偏贵
+下一步
+补音效；Core 单测；目标数对齐视频配置；酌情拆 BoardView；后置冰/双道具
+附：主流程追踪地图
+LevelDirector.Boot → InputController → GameFlowController.SwapRoutine → BoardModel.Swap → CascadeResolver.Step* → BoardView.PlayCascadeStep（ClearBurst/Booster/Collect/Fall）→ ObjectiveTracker/EventBus → GoalHUD / WinPanel。
+沿该调用链即可定位模块边界与主流程，满足二测架构设计线“可追踪核心模块”要求。
+（注：部分内容由 AI 生成，已经人工对照架构案、参考视频与可运行工程复核。）

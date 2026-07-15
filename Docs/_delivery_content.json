@@ -1,0 +1,270 @@
+{
+  "title": "程序开发二测 — 架构设计线交付说明",
+  "intro": [
+    "项目：CandyCrush（Unity 三消 Demo）｜答题方向：架构设计线（对应二测第一～四部分）",
+    "对照范围：参考视频 20260525-173242.mp4、《Unity 三消项目 — 架构设计方案》、二测拆岗改版第一～四部分、当前可运行工程。第五部分（项目落地对接线）非本方向，不作为本次交付项。"
+  ],
+  "sections": [
+    {
+      "h": "一、参考资料",
+      "p": ["二测提供的图片/字体压缩包与一测资源约定一致。本 Demo 实际资源与说明如下。"],
+      "tables": [
+        {
+          "rows": 6, "cols": 3,
+          "cells": [
+            "类型","来源 / 路径","说明",
+            "棋子 / UI / 碎屑","Assets/Art + Atlas_Tiles/UI/Vfx","已入库并打图集",
+            "字体","Assets/Art/Fonts","缺省时用系统字体，不影响架构验证",
+            "背景","相机清屏色（暗色）","架构案建议街景静态图；工程预留 LevelDirector.FitBackground，Bootstrap 未挂夜景贴图",
+            "参考视频","Desktop/20260525-173242.mp4（约 43.5s）","氛围、消除、道具、收箱、Great 对照",
+            "音效（缺失）","无 Assets/Scripts/Audio，无 AudioController","架构案要求本期留事件位；当前模块未建，仅影响听觉"
+          ]
+        }
+      ]
+    },
+    {
+      "h": "二、任务目标",
+      "p": [
+        "沿用一测声明方向：架构设计线。交付可运行源码工程，使评审能从源码追踪核心模块边界与主流程；并附架构说明、扩展示例、自评。",
+        "验收重心：Data / Core / View / Vfx / Game 边界清晰，以及「交换 → 连锁 → 目标 → 胜负」主流程可跑；不要求与视频逐帧一致。"
+      ]
+    },
+    {
+      "h": "三、通用要求响应",
+      "h2": [
+        {
+          "h": "3.1 开发环境",
+          "tables": [{
+            "rows": 8, "cols": 2,
+            "cells": [
+              "项","内容",
+              "引擎","Unity 2022.3.34f1c1（工程 Desktop/unity/CandyCrush）",
+              "语言","C#；Core 层零 UnityEngine",
+              "UI / 配置","UGUI；LevelConfig、TileSpriteCatalog（SO）",
+              "氛围","AtmosphereRain / AtmosphereSnow（Resources 材质打进包）",
+              "特效混合","CandyCrush/SpriteAdditive（真机 Additive，避免发黑）",
+              "主场景","Assets/Scenes/Gameplay.unity",
+              "安卓包","Builds/Android/CandyCrush.apk（可选真机验证）"
+            ]
+          }]
+        },
+        {
+          "h": "3.2 资源与占位",
+          "tables": [{
+            "rows": 5, "cols": 3,
+            "cells": [
+              "缺失项","影响","是否阻塞架构验收",
+              "音效模块与 clip","无听觉反馈","否（自评记录与架构案差距）",
+              "街景背景贴图","画面为相机暗色清屏","否",
+              "VfxConfig / AudioConfig SO 未全资产化","调参多在代码/材质","否",
+              "EditMode 单测未做满","无自动化回归","否（T-020 未完成）"
+            ]
+          }]
+        },
+        {
+          "h": "3.3 AI 使用说明（必须）",
+          "tables": [{
+            "rows": 5, "cols": 3,
+            "cells": [
+              "环节","AI 做什么","人工做什么",
+              "视频机制提炼","抽帧归纳草稿","定稿：氛围/消除/道具/结算要点",
+              "模块划分","Data/Core/View/Vfx/Game 草案","边界终审：表现不写 BoardModel",
+              "实现与优化","氛围 Shader、BoosterFx、池化/GC、真机 shader 打包","Play 手玩 + 对照视频 + 真机复核",
+              "本文档","初稿起草","对照架构案与工程改写差异与自评"
+            ]
+          }],
+          "p": ["误报处理：与架构案冲突时以「架构案意图 + 可运行真值」为准（例：案中炸弹曾写 3×3，工程贴近视频为 5×5）；过度表现改动由人工回退；性能告警按 9×8 演示规模判断。"]
+        }
+      ]
+    },
+    {
+      "h": "四、架构设计线交付",
+      "h2": [
+        {
+          "h": "4.1 源码工程 / 架构原型",
+          "p": [
+            "工程路径：c:\\Users\\22734\\Desktop\\unity\\CandyCrush。打开 Gameplay 场景后 Play 即可运行。",
+            "启动链：LevelDirector → LevelConfig/Catalog → BoardView → AtmosphereFx → GameFlowController.BeginLevel。"
+          ],
+          "tables": [{
+            "rows": 8, "cols": 3,
+            "cells": [
+              "路径","模块类型","主要类型",
+              "Assets/Scripts/Data","数据","TileType、BoardModel、LevelConfig、TileSpriteCatalog",
+              "Assets/Scripts/Core","行为（纯 C#）","MatchFinder、SwapValidator、ClearResolver、Gravity/Spawner、CascadeResolver、BoosterExecutor、ObjectiveTracker",
+              "Assets/Scripts/View","表现（棋盘/UI）","BoardView、TileView、DemoLayouts、GoalHUD、WinPanel、GameUiFactory、SafeAreaFitter",
+              "Assets/Scripts/Vfx","表现（特效）","AtmosphereFx、ClearBurstFx、ClearCollectFx、SettleFx、BoosterFx（Rocket/Propeller/Bomb/ColorBall）",
+              "Assets/Scripts/Game","流程","LevelDirector、InputController、GameFlowController",
+              "Assets/Scripts/Common","共用","EventBus、SimplePool、GridUtil、Tween（轻量协程补间）",
+              "Assets/Shaders","表现","AtmosphereRain、AtmosphereSnow、SpriteAdditive"
+            ]
+          }],
+          "p2": [
+            "目录差异：架构案列出 Assets/Scripts/Audio/ 与 Assets/Tests/EditMode/，工程中尚未创建（见自评）。",
+            "依赖原则：表现/流程依赖行为与数据；禁止表现私自改写棋盘真值。BoardModel 为唯一盘面真值。"
+          ]
+        },
+        {
+          "h": "4.2 架构说明",
+          "h3": [
+            {
+              "h": "4.2.1 核心模块职责",
+              "tables": [{
+                "rows": 5, "cols": 3,
+                "cells": [
+                  "类型","职责","代表模块",
+                  "数据","定义是什么","BoardModel、LevelConfig、TileType",
+                  "行为","定义怎么算","MatchFinder、ClearResolver、CascadeResolver、BoosterExecutor",
+                  "表现","定义怎么演","BoardView、AtmosphereFx、Clear*/BoosterFx、HUD、SettleFx",
+                  "流程","定义何时跑","GameFlowController、InputController、LevelDirector"
+                ]
+              }]
+            },
+            {
+              "h": "4.2.2 主流程（状态流）",
+              "p": ["状态：Idle → Busy → Idle；目标归零 → Won。本期无步数失败。"],
+              "tables": [{
+                "rows": 7, "cols": 3,
+                "cells": [
+                  "步骤","动作","关键类",
+                  "1","相邻交换，Idle 才受理；选中高亮","InputController + TileView.SetSelected",
+                  "2","Busy；交换动画并写盘","GameFlow + BoardView + BoardModel",
+                  "3","匹配或道具激活一步","CascadeResolver.Step*",
+                  "4","播消除/道具/下落/收箱","BoardView.PlayCascadeStep + Vfx",
+                  "5","仍有匹配则继续，否则回 Idle","GameFlow ResolveBoardRoutine",
+                  "6","Remaining=0 则结算","ObjectiveTracker → WinPanel/SettleFx"
+                ]
+              }]
+            },
+            {
+              "h": "4.2.3 数据流",
+              "tables": [{
+                "rows": 7, "cols": 3,
+                "cells": [
+                  "从","到","含义",
+                  "LevelConfig","LevelDirector / GameFlow","尺寸、目标、权重、彩球开关",
+                  "DemoLayouts","BoardView 开局","视频风格固定初盘（可选）",
+                  "Input","SwapValidator / Booster","请求交换或道具激活",
+                  "Swap/Clear/Gravity","BoardModel","唯一业务写盘",
+                  "CascadeResolver","CascadeStepResult","一步结果供表现消费",
+                  "ObjectiveTracker","EventBus → GoalHUD","目标刷新"
+                ]
+              }],
+              "p": ["禁止：Vfx/View 直接 board.Set 做业务清盘。"]
+            },
+            {
+              "h": "4.2.4 与参考视频 / 架构案对齐",
+              "tables": [{
+                "rows": 10, "cols": 3,
+                "cells": [
+                  "视频 / 架构点","工程对应","备注",
+                  "竖屏盘面 + 顶栏收箱","9×8 可配；GoalHUD","objectiveCount=33，显示 Min(配置,盘面箱数)",
+                  "常驻雨雪","AtmosphereFx Shader","雨下雪上、不挡点击；真机已防 shader 剥离",
+                  "消除碎裂 / 收箱","ClearBurstFx、ClearCollectFx","碎屑跟色；箱飞顶栏",
+                  "火箭 / 螺旋桨 / 炸弹","BoosterExecutor + BoosterFx","炸弹 5×5（对齐视频，非案中 3×3）",
+                  "彩球","逻辑 + ColorBallBoosterFx","enableColorBall 默认 false",
+                  "Great 结算","WinPanel + SettleFx","无剧情 CG",
+                  "街景背景","未挂贴图","暗色清屏 + FitBackground 预留",
+                  "音效","未实现","与架构案 T-017 差距",
+                  "选中反馈","TileView.SetSelected","有"
+                ]
+              }]
+            },
+            {
+              "h": "4.2.5 扩展点",
+              "tables": [{
+                "rows": 6, "cols": 2,
+                "cells": [
+                  "扩展点","改哪里",
+                  "关卡参数","LevelConfig",
+                  "新棋子或道具","TileType → MatchFinder → BoosterExecutor → BoosterFx + Catalog",
+                  "氛围","Atmosphere Shader / AtmosphereFx；Resources/Vfx/Materials",
+                  "UI 消息","EventBus",
+                  "性能","SimplePool、Cascade/MatchFinder 缓冲、Tween"
+                ]
+              }]
+            }
+          ]
+        },
+        {
+          "h": "4.3 扩展示例",
+          "p": ["示例 A：新增「冰冻」障碍"],
+          "tables": [{
+            "rows": 6, "cols": 3,
+            "cells": [
+              "模块","文件 / 类","改动要点",
+              "数据","TileType/CellFlags、BoardModel","冰厚或 overlay",
+              "行为","ClearResolver、MatchFinder、CascadeResolver","先破冰再消",
+              "表现","BoardView/TileView 或 IceView、Vfx","叠冰与破冰动画",
+              "配置","LevelConfig.initialBoard / DemoLayouts","关卡放置",
+              "通常不改","InputController、GoalHUD、AtmosphereFx","除非新目标"
+            ]
+          }],
+          "p2": ["示例 B：新增「彩虹导弹」道具（清对角线）"],
+          "tables2": [{
+            "rows": 6, "cols": 3,
+            "cells": [
+              "模块","文件 / 类","改动要点",
+              "数据","TileType、BoosterType","新枚举与映射",
+              "行为","MatchFinder、BoosterExecutor","生成 + 对角线清格",
+              "表现","BoosterFx + DiagonalBoosterFx","斜向拖尾；可挂 SpriteAdditive",
+              "资源","TileSpriteCatalog + 美术","道具图/碎屑",
+              "通常不改","GravitySystem、AtmosphereFx、WinPanel","—"
+            ]
+          }]
+        },
+        {
+          "h": "4.4 自评说明",
+          "p": ["已完成"],
+          "tables": [{
+            "rows": 7, "cols": 2,
+            "cells": [
+              "项","状态",
+              "分层工程 + Gameplay 可运行","完成",
+              "交换/匹配/下落/连锁/收箱/HUD/胜利","完成",
+              "火箭、螺旋桨、炸弹（逻辑+FX）；彩球开关+FX 默认关","完成",
+              "雨雪氛围、消除碎屑、收箱飞入、结算 Great","完成",
+              "竖屏适配、选中高亮、池化/GC 复用、Tween","完成",
+              "真机 APK；大气/Additive shader 打进包","完成"
+            ]
+          }],
+          "p2": ["未完成 / 与架构案差异"],
+          "tables2": [{
+            "rows": 9, "cols": 2,
+            "cells": [
+              "项","说明",
+              "音效","无 Audio 目录/AudioController（非仅 clip 未齐）",
+              "背景","未挂街景，仅暗色清屏",
+              "炸弹范围","案 3×3 → 工程 5×5（对齐视频）",
+              "Cascade 上限","案 20 → 工程 MaxRounds=64",
+              "FxManager / Vfx·Audio SO","未完全按文档；现为步骤结果驱动",
+              "后置玩法","双道具、冰/链、步数失败、多关",
+              "单测 / asmdef","T-020 未做；无 asmdef",
+              "README","根说明偏简，以本交付说明为准"
+            ]
+          }],
+          "p3": ["风险与下一步"],
+          "tables3": [{
+            "rows": 6, "cols": 2,
+            "cells": [
+              "类型","内容",
+              "风险","Cascade/MatchFinder 缓冲复用依赖“算完再播再算”",
+              "风险","BoardView 偏胖；无 asmdef 强制分层",
+              "风险","大气全屏 Shader 低端机可能偏贵",
+              "风险","真机曾 Shader.Find 剥离（已用 Resources+AlwaysIncluded+SpriteAdditive 修）",
+              "下一步","补 Audio 事件接口+占位音；Core 单测；可选街景；拆 BoardView；后置冰/双道具"
+            ]
+          }]
+        }
+      ]
+    },
+    {
+      "h": "附：主流程追踪地图",
+      "p": [
+        "LevelDirector.Boot → InputController → GameFlowController.SwapRoutine → BoardModel.Swap → CascadeResolver.Step* → BoardView.PlayCascadeStep（ClearBurst/Booster/Collect/Fall）→ ObjectiveTracker/EventBus → GoalHUD / WinPanel。",
+        "沿该调用链即可定位模块边界与主流程，满足二测架构设计线“可追踪核心模块”要求。",
+        "（注：部分内容由 AI 生成，已经人工对照架构案、参考视频与可运行工程复核；本次复核修正音效/背景表述，并补全 Tween、DemoLayouts、SpriteAdditive、彩球与真机 shader 项。）"
+      ]
+    }
+  ]
+}

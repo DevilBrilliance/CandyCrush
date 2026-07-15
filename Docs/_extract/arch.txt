@@ -1,0 +1,432 @@
+Unity 三消项目 — 架构设计方案
+答题方向：架构设计线
+1. 文档目的
+本文档指导 Demo 实现：按「数据 / 行为 / 表现 / 流程」划分模块，明确职责边界、依赖、排期与验收。对照参考视频补齐玩法与关键特效规格；
+2. 玩法抽象（机制级）
+2.1 核心循环
+交换 → 校验 → 匹配 → 消除结算 → 下落补块 → 连锁 → 更新目标 → 胜负。特效/动画未完成前锁输入；Idle 后才可再操作。
+2.2 机制清单
+机制
+规则
+归属模块类型
+棋盘
+9 列 × 8 行（可配置）
+数据 + 行为
+交换
+相邻；无效回弹
+行为 + 表现
+消除
+普通块横/竖 ≥3
+行为 + 表现
+下落/补块
+列压缩；顶行补普通块
+行为 + 表现
+连锁
+消→掉→补→再检
+行为（状态机）
+目标块
+行李箱不参与同色匹配；被波及则收集
+数据规则 + 行为 + 表现
+道具
+火箭/螺旋桨/炸弹；彩球可选进阶段 2
+行为 + 表现
+胜负
+目标归零即胜；无步数
+行为 + UI
+氛围
+全屏飘雪/雨丝常驻
+表现
+障碍
+本期=行李箱；冰/链后置
+数据扩展点
+2.3 Demo 范围与配置约定
+纳入：三消闭环、行李箱收集、火箭/螺旋桨/炸弹、飘雪、消除/收箱/道具特效、Great 结算、基础音效
+后置：双道具组合、冰/锁链、步数失败、多关、热更、埋点
+目标数量：以 LevelConfig 为准；视频中可见更大数字（如 33），Demo 默认 15，可改配置对齐视频
+棋盘尺寸：默认 9×8，写入配置，避免写死
+彩球：视频可见；默认阶段 2 可选开关（Vfx/Booster 配置），人手紧可关
+背景：一张暗色街景图即可，不单独立项做剧情 CG
+3. 模块总览（按功能分层）
+为便于理解和分工，系统拆成四类模块。箭头表示依赖：表现/流程依赖行为，行为依赖数据；禁止表现直接改写数据真值。
+类型
+职责一句话
+典型模块
+数据模块
+定义「是什么」：类型、配置、棋盘快照
+TileType、LevelConfig、VfxConfig、AudioConfig、BoardModel
+行为模块
+定义「怎么算」：匹配、消除、下落、连锁、道具、目标
+MatchFinder、ClearResolver、Gravity、Cascade、Booster、Objective
+表现模块
+定义「怎么演」：位移、粒子、UI、音效
+BoardView、AtmosphereFx、ClearFx、BoosterFx、HUD、Audio
+流程模块
+定义「何时跑」：开局、输入锁、胜负、场景编排
+GameFlow、InputController、LevelDirector、WinLose
+3.1 目录映射
+路径
+模块类型
+Assets/Scripts/Data/
+数据
+Assets/Scripts/Core/
+行为（纯 C#，零 UnityEngine）
+Assets/Scripts/View/
+表现（棋盘视图/UI）
+Assets/Scripts/Vfx/
+表现（特效）
+Assets/Scripts/Audio/
+表现（音效）
+Assets/Scripts/Game/
+流程
+Assets/Scripts/Common/
+EventBus、对象池、坐标
+Assets/Tests/EditMode/
+行为单测
+4. 数据模块设计
+4.1 BoardModel（运行时数据真值）
+唯一棋盘真值：Cell 二维结构，提供 get/set、swap、clone、边界。纯 C#。View 只读镜像，不得私自改写。
+4.2 TileType / BoosterType / ObjectiveType
+枚举与静态表：普通四色、行李箱、空、火箭横/竖、螺旋桨、炸弹、彩球等。行为与表现都通过类型查表，避免魔法数。
+4.3 LevelConfig（ScriptableObject）
+rows/cols（默认 8/9）
+objectiveType + objectiveCount（Demo 默认 15，可改为视频值）
+initialBoard 布局
+spawnWeights（仅普通块）
+enableColorBall（彩球开关，默认 false 或按阶段打开）
+4.4 VfxConfig / AudioConfig（ScriptableObject）
+Vfx：飘雪发射率、碎屑数量、各特效时长、sortingOrder
+Audio：交换/回弹/消除/收箱/道具/胜利 clip 引用与音量
+5. 行为模块设计
+5.1 MatchFinder
+扫描横/竖匹配；识别 4 连、L/T、5 连；输出 MatchGroup + 可选道具生成信息。
+5.2 SwapValidator
+相邻校验；交换后无匹配则回滚。不负责播动画。
+5.3 ClearResolver
+清格；行李箱被波及则 Objective.Add(-1)；抛 ClearEvent / CollectEvent 给表现层。
+5.4 GravitySystem / TileSpawner
+列压缩；顶行按权重生成普通块（不刷行李箱）。输出 FallMove/SpawnMove。
+5.5 CascadeResolver
+状态机驱动匹配→消除→下落→补块。每步等待表现层完成回调。maxRounds=20。
+5.6 BoosterFactory / BoosterExecutor
+道具
+生成
+效果
+阶段
+火箭
+4 连
+清行/列
+阶段 2
+螺旋桨
+2×2 或 L/T
+追踪优先目标（箱优先）
+阶段 2
+炸弹
+L/T 五格
+3×3
+阶段 2
+彩球
+5 连
+同色全清
+阶段 2 可选 / 可关
+5.7 ObjectiveTracker
+读取 LevelConfig 目标数；维护 remaining；归零发 LevelWin。
+6. 表现模块设计（动画 / 特效 / UI / 音效）
+表现只订阅事件与命令队列，完成后回调流程模块。对照视频必做项如下。
+6.1 BoardView / TileView（动画）
+交换对滑、无效回弹
+下落与顶上补块飞入（禁止凭空闪现）
+选中高亮（轻微放大/描边）
+6.2 AtmosphereFx（氛围）
+开场即播，贯穿整关
+全屏白色飘雪（大小/透明度变化）；可选细雨丝
+不拦截点击；手机端可降粒子密度
+6.3 ClearFx（消除）
+短闪 → 碎裂 → 彩色碎屑（颜色跟块走）
+可叠加星形闪点；时长可配置并纳入 Cascade 等待
+6.4 CollectFx（收箱）
+行李箱飞向顶栏图标 + 数字 punch
+与普通碎裂区分，便于验收
+6.5 BoosterFx（道具）
+道具
+表现要点
+生成
+锚点短聚光/合成后入格
+火箭
+行/列扫射拖尾，格依次碎裂
+螺旋桨
+飞行 + 星光拖尾，命中后清目标
+炸弹
+中心爆闪 + 3×3 碎裂
+彩球（可选）
+激活后同色块连锁清散
+6.6 GoalHUD / WinPanel / SettleFx（UI）
+顶栏：箱图标 + remaining
+归零：Great + 星光爆闪 → 胜利页
+不强制还原视频剧情角色 CG；背景用静态图
+6.7 AudioController（音效）
+交换成功/回弹、消除、收箱、道具激活、胜利
+资源可后补，但接口与事件绑定本期就要留好（避免返工）
+6.8 FxManager
+统一收事件、排队列、回调解锁。禁止改 BoardModel。
+7. 流程模块设计
+7.1 LevelDirector
+加载 LevelConfig；初始化 Board/Objective；启动 AtmosphereFx；组织开局。
+7.2 InputController
+手势→格坐标；非 Idle 直接丢弃输入。
+7.3 GameFlowController
+串联「输入→行为→等待表现→下一状态」；处理 LevelWin。
+7.4 WinLoseHandler
+胜利进入 SettleFx/WinPanel；本期无失败条件。
+7.5 一次交换跨模块数据流
+Input(流程) → Swap(行为) → Board(数据) → Cascade(行为) → Match/Clear/Gravity(行为) → Fx/View/Audio(表现) → Objective/HUD(数据事件+UI)
+8. 技术选型
+领域
+方案
+行为层
+纯 C# + EditMode 单测
+表现动画
+DOTween 或协程队列
+特效
+ParticleSystem + 对象池
+UI
+UGUI + TMP
+配置
+ScriptableObject（Level/Vfx/Audio）
+资源
+Demo 用 Resources
+音效
+AudioSource + AudioConfig
+9. 任务拆分（按模块类型）
+ID
+类型
+内容
+依赖
+T-001
+流程
+工程目录/场景/9×8 空盘
+—
+T-002
+数据
+BoardModel + 坐标 + 单测
+T-001
+T-003
+数据
+Level/Vfx/Audio Config 骨架
+T-001
+T-004
+行为
+MatchFinder + 单测
+T-002
+T-005
+行为
+SwapValidator
+T-002,T-004
+T-006
+流程
+InputController + 输入锁
+T-005
+T-007
+行为
+Gravity/Spawner
+T-002
+T-008
+行为
+ClearResolver + ObjectiveTracker
+T-002
+T-009
+行为
+CascadeResolver（可等 Fx）
+T-004,T-007,T-008
+T-010
+表现
+BoardView 交换/下落动画
+T-006,T-009
+T-011
+表现
+GoalHUD
+T-008
+T-012
+流程
+LevelDirector 开局加载
+T-002,T-003,T-008
+T-013
+表现
+AtmosphereFx 飘雪/雨丝
+T-001,T-003
+T-014
+表现
+ClearFx + CollectFx
+T-008,T-010
+T-015
+行为
+Booster 逻辑
+T-004,T-009
+T-016
+表现
+BoosterFx
+T-015,T-014
+T-017
+表现
+Audio 事件绑定
+T-003,T-006,T-014
+T-018
+表现
+SettleFx + WinPanel（Great）
+T-008
+T-019
+数据
+15 箱布局调优（可改目标数）
+T-012,T-015
+T-020
+行为
+Core 回归单测集
+T-004~T-009
+10. 实施顺序
+10.1 阶段 0（约 1 人日）— 数据与骨架
+工程/目录；BoardModel；Config 骨架；棋盘可见
+可先挂 AtmosphereFx 验证不挡点击
+10.2 阶段 1（约 2 人日）— 行为闭环 MVP
+匹配、交换、下落、连锁、目标、HUD
+DoD：不靠道具能收完目标；无 Error（消除可用占位闪白）
+10.3 阶段 2（约 2 人日）— 表现对齐视频
+飘雪、Clear/Collect、火箭/螺旋桨/炸弹（+ 可选彩球）、音效、Great
+DoD：对照视频 0:00 飘雪、消除碎裂、道具轨迹、结算反馈
+10.4 阶段 3 — 后置
+双道具组合、冰/链、步数失败、多关、Addressables、埋点
+11. 风险与应对
+风险
+影响
+应对
+表现写数据
+状态错乱
+类型边界 Code Review；Fx/View 只订事件
+目标数写死
+难对齐视频
+LevelConfig.objectiveCount
+行李箱规则飘
+计数错
+锁定：被波及即收集
+粒子过多
+掉帧
+VfxConfig 分档；池化
+飘雪挡点击
+无法玩
+关闭 Raycast
+连锁死循环
+卡死
+maxRounds=20
+音效后补忘接
+返工
+本期先接事件空 clip
+12. 验收标准
+模块类型
+项
+标准
+数据
+BoardModel
+格数据与场景一致
+数据
+LevelConfig
+改目标数/尺寸后开局生效
+行为
+Swap
+非法回弹；合法进入消除
+行为
+MatchFinder
+固定盘单测正确
+行为
+Gravity
+无悬空重叠
+行为
+Cascade
+两轮连锁后 Idle
+行为
+Booster
+火箭/螺旋桨/炸弹可生成激活
+表现
+AtmosphereFx
+开场即有飘雪；不挡点击
+表现
+ClearFx
+碎屑颜色正确
+表现
+CollectFx
+箱飞顶栏且 -1
+表现
+BoosterFx
+扫射/飞行拖尾/爆闪可见
+表现
+Audio
+关键操作有声（可用占位音）
+表现
+Settle
+Great/胜利页
+流程
+整关
+冷启动到结算无卡死无 Error
+13. AI 使用说明
+13.1 参与内容
+环节
+AI
+人工
+视频机制/特效提炼
+抽帧归纳
+定稿
+模块划分
+数据/行为/表现/流程草案
+边界终审
+任务拆分
+T 列表草案
+依赖与优先级确认
+配置建议
+目标数/粒子参数区间
+试玩与真机调参
+13.2 校验与转任务
+校验：对视频 0:00 飘雪、消除瞬间、道具飞行、结算；Core 零引擎；Fx 不写 Model
+转任务：只建阶段 0~2；字段含类型（数据/行为/表现/流程）+ 依赖 + 验收
+优先级
+范围
+P0
+T-001~T-012（数据+行为闭环+基础流程/HUD）
+P1
+T-013~T-020（表现对齐、音效、结算、布局、回归）
+P2
+阶段 3
+14. 模块依赖
+从
+到
+含义
+LevelConfig
+LevelDirector
+读关
+LevelDirector
+Board/Objective/Atmosphere
+初始化
+Input
+SwapValidator
+请求交换
+SwapValidator
+BoardModel
+写盘
+GameFlow
+Cascade
+开连锁
+Cascade
+Match/Clear/Gravity
+一轮行为
+Clear
+Objective + Clear/CollectFx + Audio
+结算与表现
+Booster
+BoosterFx + Clear/Collect
+道具
+Board
+BoardView
+同步
+Objective
+HUD
+刷新
+FxManager
+Cascade
+完成回调
+建议：先数据与行为 P0，再表现 P1；飘雪（T-013）可早并行；音效（T-017）与特效并行。
