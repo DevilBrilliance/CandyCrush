@@ -106,7 +106,7 @@ namespace CandyCrush.Vfx
                 float cell = board.CellSizeSafe();
                 if (type == TileType.Bomb)
                 {
-                    wait = Mathf.Max(wait, spawnPopDuration + 0.2f);
+                    wait = Mathf.Max(wait, 0.58f);
                     StartCoroutine(_bomb.PlaySpawn(world, cell, board.GetView(at.Row, at.Col)));
                 }
                 else

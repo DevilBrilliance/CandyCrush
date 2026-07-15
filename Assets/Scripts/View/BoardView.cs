@@ -337,6 +337,20 @@ namespace CandyCrush.View
                 }
             }
 
+            // --- 道具先出现在生成格并播出现特效（等播完再下落，否则会被碎裂/重力盖住）---
+            if (step.SpawnedBoosters.Count > 0)
+            {
+                foreach (var (at, type) in step.SpawnedBoosters)
+                {
+                    if (_views[at.Row, at.Col] != null) continue;
+                    // 无论重力后是否搬走，先在合成点生成视图供弹出表现
+                    _views[at.Row, at.Col] = CreateTileView(type, at.Row, at.Col, CellLocal(at.Row, at.Col));
+                }
+
+                if (_boosterFx != null)
+                    yield return _boosterFx.PlaySpawnPops(step.SpawnedBoosters, this);
+            }
+
             var falling = new List<(TileView view, Vector3 from, Vector3 to)>();
             var fallList = new List<FallMove>(step.Falls);
             fallList.Sort((a, b) =>
@@ -364,15 +378,13 @@ namespace CandyCrush.View
                 falling.Add((v, v.transform.localPosition, CellLocal(move.To.Row, move.To.Col)));
             }
 
+            // 未参与下落、仍停在生成点的道具（已创建过则跳过）
             foreach (var (at, type) in step.SpawnedBoosters)
             {
                 if (_model.Get(at.Row, at.Col) != type) continue;
                 if (_views[at.Row, at.Col] != null) continue;
                 _views[at.Row, at.Col] = CreateTileView(type, at.Row, at.Col, CellLocal(at.Row, at.Col));
             }
-
-            if (step.SpawnedBoosters.Count > 0 && _boosterFx != null)
-                StartCoroutine(_boosterFx.PlaySpawnPops(step.SpawnedBoosters, this));
 
             var spawning = new List<(TileView view, Vector3 from, Vector3 to)>();
             foreach (var spawn in step.Spawns)
