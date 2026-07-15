@@ -74,8 +74,12 @@ namespace CandyCrush.Core
         /// <param name="exclude">已被其它螺旋桨占用的目标，避免多桨追同一格。</param>
         public static GridPos? FindPropellerTarget(BoardModel board, int selfR, int selfC, ICollection<GridPos> exclude = null)
         {
-            bool Excluded(int r, int c)
+            // 十字花（自身+上下左右）已清掉，追击不能再选这些格（邻格箱子不算追击目标）
+            bool Skip(int r, int c)
             {
+                if (r == selfR && c == selfC) return true;
+                int d = Abs(r - selfR) + Abs(c - selfC);
+                if (d <= 1) return true;
                 if (exclude == null || exclude.Count == 0) return false;
                 var p = new GridPos(r, c);
                 foreach (var e in exclude)
@@ -83,45 +87,31 @@ namespace CandyCrush.Core
                 return false;
             }
 
-            // 优先行李箱
+            // 优先行李箱（不含十字格内）
             GridPos? bestSuit = null;
             int bestDist = int.MaxValue;
             for (int r = 0; r < board.Rows; r++)
             for (int c = 0; c < board.Cols; c++)
             {
-                if (r == selfR && c == selfC) continue;
-                if (Excluded(r, c)) continue;
+                if (Skip(r, c)) continue;
                 if (board.Get(r, c) != TileType.Suitcase) continue;
                 int d = Abs(r - selfR) + Abs(c - selfC);
                 if (d < bestDist) { bestDist = d; bestSuit = new GridPos(r, c); }
             }
             if (bestSuit.HasValue) return bestSuit;
 
-            // 其次任意非空非自身（避开十字邻格）
+            // 其次任意非空且在十字外
             GridPos? bestOther = null;
             bestDist = int.MaxValue;
             for (int r = 0; r < board.Rows; r++)
             for (int c = 0; c < board.Cols; c++)
             {
-                if (r == selfR && c == selfC) continue;
-                if (Excluded(r, c)) continue;
+                if (Skip(r, c)) continue;
                 if (board.Get(r, c) == TileType.Empty) continue;
                 int d = Abs(r - selfR) + Abs(c - selfC);
-                if (d <= 1) continue;
                 if (d < bestDist) { bestDist = d; bestOther = new GridPos(r, c); }
             }
-            if (bestOther.HasValue) return bestOther;
-
-            // 最后退回邻格非空
-            for (int r = 0; r < board.Rows; r++)
-            for (int c = 0; c < board.Cols; c++)
-            {
-                if (r == selfR && c == selfC) continue;
-                if (Excluded(r, c)) continue;
-                if (board.Get(r, c) != TileType.Empty)
-                    return new GridPos(r, c);
-            }
-            return null;
+            return bestOther;
         }
 
         static void AddUnique(List<GridPos> cells, GridPos p)
