@@ -183,39 +183,43 @@ namespace CandyCrush.Vfx
 
         public IEnumerator PlayFlash(Vector3 origin, float cell)
         {
-            // 更壮观：双星光 + 三环冲击 + 大量星碎片 / 烟絮，覆盖约 5×5
+            // 作用范围：中心 ±2 → 直径 5 格
+            // GetShockRing 亮圈峰值在归一化半径 ≈0.72，Fit 时需放大，才能让可视环贴到 5 格边
+            const float RingPeakNorm = 0.72f;
             float dur = Mathf.Max(0.72f, _fx.BombDuration + 0.18f);
-            float reach = cell * 3.1f;
+            float diameter = cell * 5f;
+            float radius = diameter * 0.5f;
+            float ringFit = diameter / RingPeakNorm;
             int order = BoosterFxContext.SortingOrder;
 
             var flash = _fx.MakeSprite("BombStarFlash", _fx.Starlight, origin, order + 14, additive: true);
             BoosterFxContext.Tint(flash, new Color(1f, 0.98f, 0.85f, 1f));
-            flash.transform.localScale = Vector3.one * (cell * 0.25f);
+            BoosterFxContext.FitSpriteWorld(flash, diameter * 0.12f, diameter * 0.12f);
 
             var flash2 = _fx.MakeSprite("BombStarFlash2", _fx.Starlight, origin, order + 13, additive: true);
             BoosterFxContext.Tint(flash2, new Color(1f, 0.75f, 0.35f, 0.95f));
-            flash2.transform.localScale = Vector3.one * (cell * 0.2f);
+            BoosterFxContext.FitSpriteWorld(flash2, diameter * 0.1f, diameter * 0.1f);
             flash2.transform.rotation = Quaternion.Euler(0f, 0f, 45f);
 
             var core = _fx.MakeSprite("BombCore", _fx.Flash, origin, order + 12, additive: true);
             BoosterFxContext.Tint(core, new Color(1f, 0.95f, 0.7f, 1f));
-            core.transform.localScale = Vector3.one * (cell * 0.45f);
+            BoosterFxContext.FitSpriteWorld(core, diameter * 0.18f, diameter * 0.18f);
 
             var ring = _fx.MakeSprite("BombRing", BoosterFxContext.GetShockRing(), origin, order + 9, additive: true);
             BoosterFxContext.Tint(ring, new Color(1f, 0.7f, 0.25f, 1f));
-            ring.transform.localScale = Vector3.one * (cell * 0.45f);
+            BoosterFxContext.FitSpriteWorld(ring, ringFit * 0.16f, ringFit * 0.16f);
 
             var ring2 = _fx.MakeSprite("BombRing2", BoosterFxContext.GetShockRing(), origin, order + 10, additive: true);
             BoosterFxContext.Tint(ring2, new Color(1f, 0.45f, 0.15f, 0.9f));
-            ring2.transform.localScale = Vector3.one * (cell * 0.45f);
+            BoosterFxContext.FitSpriteWorld(ring2, ringFit * 0.16f, ringFit * 0.16f);
 
             var ring3 = _fx.MakeSprite("BombRing3", BoosterFxContext.GetShockRing(), origin, order + 8, additive: true);
             BoosterFxContext.Tint(ring3, new Color(1f, 0.9f, 0.5f, 0.75f));
-            ring3.transform.localScale = Vector3.one * (cell * 0.4f);
+            BoosterFxContext.FitSpriteWorld(ring3, ringFit * 0.14f, ringFit * 0.14f);
 
             var heat = _fx.MakeSprite("BombHeat", _fx.Glow, origin, order + 7, additive: true);
             BoosterFxContext.Tint(heat, new Color(1f, 0.3f, 0.1f, 0.9f));
-            heat.transform.localScale = Vector3.one * (cell * 0.9f);
+            BoosterFxContext.FitSpriteWorld(heat, diameter * 0.28f, diameter * 0.28f);
 
             int burst = 28;
             for (int i = 0; i < burst; i++)
@@ -226,7 +230,7 @@ namespace CandyCrush.Vfx
                 Color col = (i % 3 == 0)
                     ? new Color(1f, 0.45f, 0.85f, 1f)
                     : new Color(1f, 0.92f, 0.4f, 1f);
-                float speed = reach * Random.Range(2.6f, 5.0f);
+                float speed = radius * Random.Range(2.2f, 3.6f);
                 _fx.SpawnFadingParticle(origin + dir * cell * 0.12f, spr,
                     cell * Random.Range(0.4f, 0.85f), col, Random.Range(0.4f, 0.65f), dir * speed, additive: true);
             }
@@ -239,11 +243,10 @@ namespace CandyCrush.Vfx
                     cell * Random.Range(0.7f, 1.35f),
                     new Color(1f, 0.5f, 0.2f, 0.8f),
                     Random.Range(0.45f, 0.75f),
-                    dir * reach * Random.Range(0.9f, 1.9f),
+                    dir * radius * Random.Range(1.1f, 2.0f),
                     additive: true);
             }
 
-            // 二次爆：外圈星雨
             for (int i = 0; i < 10; i++)
             {
                 float ang = Random.Range(0f, Mathf.PI * 2f);
@@ -251,7 +254,7 @@ namespace CandyCrush.Vfx
                 _fx.SpawnFadingParticle(origin + dir * cell * Random.Range(0.8f, 1.6f), _fx.Starlight != null ? _fx.Starlight : _fx.Star,
                     cell * Random.Range(0.35f, 0.6f),
                     new Color(1f, 0.95f, 0.7f, 0.95f),
-                    0.45f, dir * reach * 1.4f, additive: true);
+                    0.45f, dir * radius * 1.6f, additive: true);
             }
 
             float t = 0f;
@@ -264,8 +267,8 @@ namespace CandyCrush.Vfx
 
                 if (flash != null)
                 {
-                    float fs = Mathf.Lerp(0.5f, 5.2f, punch);
-                    flash.transform.localScale = Vector3.one * (cell * fs);
+                    float d = Mathf.Lerp(diameter * 0.2f, diameter * 1.02f, punch);
+                    BoosterFxContext.FitSpriteWorld(flash, d, d);
                     flash.transform.rotation = Quaternion.Euler(0f, 0f, u * 70f);
                     var c = flash.color;
                     c.a = u < 0.3f ? 1f : Mathf.Lerp(1f, 0f, (u - 0.3f) / 0.7f);
@@ -274,8 +277,8 @@ namespace CandyCrush.Vfx
 
                 if (flash2 != null)
                 {
-                    float fs = Mathf.Lerp(0.4f, 4.4f, Mathf.Sin(Mathf.Clamp01(u * 1.55f) * Mathf.PI));
-                    flash2.transform.localScale = Vector3.one * (cell * fs);
+                    float d = Mathf.Lerp(diameter * 0.16f, diameter * 0.92f, Mathf.Sin(Mathf.Clamp01(u * 1.55f) * Mathf.PI));
+                    BoosterFxContext.FitSpriteWorld(flash2, d, d);
                     flash2.transform.rotation = Quaternion.Euler(0f, 0f, -u * 90f);
                     var c = flash2.color;
                     c.a = u < 0.25f ? 0.95f : Mathf.Lerp(0.95f, 0f, (u - 0.25f) / 0.75f);
@@ -284,7 +287,8 @@ namespace CandyCrush.Vfx
 
                 if (core != null)
                 {
-                    core.transform.localScale = Vector3.one * (cell * Mathf.Lerp(0.7f, 2.8f, ease));
+                    float d = Mathf.Lerp(diameter * 0.22f, diameter * 0.55f, ease);
+                    BoosterFxContext.FitSpriteWorld(core, d, d);
                     var c = core.color;
                     c.a = 1f - u * 0.95f;
                     core.color = c;
@@ -292,7 +296,9 @@ namespace CandyCrush.Vfx
 
                 if (ring != null)
                 {
-                    ring.transform.localScale = Vector3.one * (cell * Mathf.Lerp(0.7f, 6.2f, ease));
+                    // 主冲击环可视峰值 → 正好盖满 5 格直径
+                    float d = Mathf.Lerp(ringFit * 0.18f, ringFit, ease);
+                    BoosterFxContext.FitSpriteWorld(ring, d, d);
                     var c = ring.color;
                     c.a = 1f * (1f - u) * (1f - u);
                     ring.color = c;
@@ -301,7 +307,8 @@ namespace CandyCrush.Vfx
                 if (ring2 != null)
                 {
                     float u2 = Mathf.Clamp01((u - 0.08f) / 0.92f);
-                    ring2.transform.localScale = Vector3.one * (cell * Mathf.Lerp(0.8f, 7.0f, 1f - Mathf.Pow(1f - u2, 2.2f)));
+                    float d = Mathf.Lerp(ringFit * 0.2f, ringFit * 1.02f, 1f - Mathf.Pow(1f - u2, 2.2f));
+                    BoosterFxContext.FitSpriteWorld(ring2, d, d);
                     var c = ring2.color;
                     c.a = 0.9f * (1f - u2) * (1f - u2);
                     ring2.color = c;
@@ -310,7 +317,8 @@ namespace CandyCrush.Vfx
                 if (ring3 != null)
                 {
                     float u3 = Mathf.Clamp01((u - 0.18f) / 0.82f);
-                    ring3.transform.localScale = Vector3.one * (cell * Mathf.Lerp(1.0f, 5.5f, u3));
+                    float d = Mathf.Lerp(ringFit * 0.24f, ringFit * 0.98f, u3);
+                    BoosterFxContext.FitSpriteWorld(ring3, d, d);
                     var c = ring3.color;
                     c.a = 0.7f * (1f - u3);
                     ring3.color = c;
@@ -318,7 +326,8 @@ namespace CandyCrush.Vfx
 
                 if (heat != null)
                 {
-                    heat.transform.localScale = Vector3.one * (cell * Mathf.Lerp(1.1f, 6.0f, ease));
+                    float d = Mathf.Lerp(diameter * 0.35f, diameter * 0.98f, ease);
+                    BoosterFxContext.FitSpriteWorld(heat, d, d);
                     var c = heat.color;
                     c.a = 0.85f * (1f - u);
                     heat.color = c;
@@ -328,10 +337,10 @@ namespace CandyCrush.Vfx
                 {
                     float ang = Random.Range(0f, Mathf.PI * 2f);
                     var dir = new Vector3(Mathf.Cos(ang), Mathf.Sin(ang), 0f);
-                    _fx.SpawnFadingParticle(origin + dir * cell * Random.Range(0.5f, 2.0f), _fx.Star,
+                    _fx.SpawnFadingParticle(origin + dir * radius * Random.Range(0.2f, 0.85f), _fx.Star,
                         cell * Random.Range(0.22f, 0.48f),
                         new Color(1f, 0.95f, 0.55f, 1f),
-                        0.32f, dir * reach * 2.0f, additive: true);
+                        0.32f, dir * radius * 1.8f, additive: true);
                 }
 
                 yield return null;
