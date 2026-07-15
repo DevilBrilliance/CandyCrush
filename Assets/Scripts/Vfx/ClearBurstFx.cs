@@ -111,7 +111,6 @@ namespace CandyCrush.Vfx
                 _angleSlots.Add(baseAngle + Random.Range(-angleJitter, angleJitter));
             }
 
-            // 打乱槽位，避免从左到右固定顺序
             for (int i = _angleSlots.Count - 1; i > 0; i--)
             {
                 int j = Random.Range(0, i + 1);
@@ -121,7 +120,6 @@ namespace CandyCrush.Vfx
             for (int i = 0; i < count; i++)
             {
                 float angleDeg = _angleSlots[i];
-                // 0°=正上，负左正右
                 Vector3 dir = Quaternion.Euler(0f, 0f, angleDeg) * Vector3.up;
 
                 float speed = s * Random.Range(speedMul.x, speedMul.y);
@@ -175,7 +173,6 @@ namespace CandyCrush.Vfx
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             main.maxParticles = 64;
             main.scalingMode = ParticleSystemScalingMode.Hierarchy;
-            // 速度由 EmitParams 指定；duration 只能在未播放时设置
             main.startSpeed = 0f;
             main.startLifetime = Duration;
             main.duration = Duration + 0.1f;
@@ -184,7 +181,6 @@ namespace CandyCrush.Vfx
             emission.enabled = false;
             emission.rateOverTime = 0f;
 
-            // 关闭 Shape，避免把所有粒子挤回同一发射方向
             var shape = ps.shape;
             shape.enabled = false;
 
@@ -286,7 +282,6 @@ namespace CandyCrush.Vfx
         void Tune(ParticleSystem ps, float cellSize)
         {
             var main = ps.main;
-            // duration 播放中不可改；寿命用 EmitParams.startLifetime
             main.startSpeed = 0f;
             main.gravityModifier = gravityModifier;
             main.simulationSpace = ParticleSystemSimulationSpace.World;

@@ -75,7 +75,7 @@ namespace CandyCrush.Vfx
                     TileType.RocketH => rocketDuration,
                     TileType.RocketV => rocketDuration,
                     TileType.Propeller => propellerDuration,
-                    TileType.Bomb => Mathf.Max(0.45f, bombDuration),
+                    TileType.Bomb => Mathf.Max(0.72f, bombDuration + 0.18f),
                     TileType.ColorBall => colorBallDuration,
                     _ => 0.2f
                 };
@@ -98,16 +98,23 @@ namespace CandyCrush.Vfx
             if (spawns == null || spawns.Count == 0 || board == null) yield break;
             _ctx.EnsureSpritesLoaded();
 
+            float wait = spawnPopDuration;
             for (int i = 0; i < spawns.Count; i++)
             {
                 var (at, type) = spawns[i];
                 var world = board.transform.TransformPoint(board.CellLocal(at.Row, at.Col));
-                StartCoroutine(SpawnPop(world, board.CellSizeSafe(), type));
+                float cell = board.CellSizeSafe();
+                if (type == TileType.Bomb)
+                {
+                    wait = Mathf.Max(wait, spawnPopDuration + 0.2f);
+                    StartCoroutine(_bomb.PlaySpawn(world, cell, board.GetView(at.Row, at.Col)));
+                }
+                else
+                    StartCoroutine(SpawnPop(world, cell, type));
             }
 
             float t = 0f;
-            float dur = spawnPopDuration;
-            while (t < dur)
+            while (t < wait)
             {
                 t += Time.deltaTime;
                 yield return null;
