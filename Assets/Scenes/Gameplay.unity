@@ -281,6 +281,10 @@ MonoBehaviour:
   landShakeStrength: 0.1
   bombBoardShakeDuration: 0.5
   bombBoardShakeStrength: 0.25
+  rocketBoardShakeDuration: 0.35
+  rocketBoardShakeStrength: 0.18
+  propellerBoardShakeDuration: 0.35
+  propellerBoardShakeStrength: 0.18
 --- !u!4 &840395388
 Transform:
   m_ObjectHideFlags: 0

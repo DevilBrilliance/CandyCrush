@@ -122,12 +122,15 @@ namespace CandyCrush.Vfx
             switch (a.Type)
             {
                 case TileType.RocketH:
+                    if (Random.value < 0.5f) board.PlayRocketBoardShake();
                     yield return _rocket.PlaySweep(a.Origin, true, board);
                     break;
                 case TileType.RocketV:
+                    if (Random.value < 0.5f) board.PlayRocketBoardShake();
                     yield return _rocket.PlaySweep(a.Origin, false, board);
                     break;
                 case TileType.Propeller:
+                    if (Random.value < 0.5f) board.PlayPropellerBoardShake();
                     if (a.HasTarget)
                     {
                         var target = board.transform.TransformPoint(board.CellLocal(a.Target.Row, a.Target.Col));
