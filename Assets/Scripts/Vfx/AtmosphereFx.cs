@@ -1,46 +1,45 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace CandyCrush.Vfx
 {
     /// <summary>
-    /// 前景软边飘雪 + 背景斜向雨丝（朝向跟速度一致，左下）。
-    /// sorting：夜景(-20) &lt; 雨丝 &lt; 棋盘0 &lt; 棋子10 &lt; … &lt; 雪絮（世界最上层）
+    /// 全屏 Shader 大气：雨丝在棋盘下，飘雪在最上层。
+    /// 观感对齐参考视频与旧粒子版（长细斜雨 + 软絮棉团雪）。
+    /// sorting：夜景(-20) &lt; 雨(-18) &lt; 棋盘0 &lt; 棋子10 &lt; … &lt; 雪(900)
     /// </summary>
     public class AtmosphereFx : MonoBehaviour
     {
-        // 紧贴夜景之上、棋盘之下（雨须高于夜景才能看见）
         public const int RainSortingOrder = -18;
-        // 盖过棋子/碎块/道具/飞收集，世界层最前；Screen Space Overlay UI 仍在最上
         public const int SnowSortingOrder = 900;
 
-        [SerializeField] ParticleSystem snow;
-        [SerializeField] ParticleSystem rain;
-        [SerializeField] ParticleSystem fineSnow;
+        [SerializeField] MeshRenderer rainRenderer;
+        [SerializeField] MeshRenderer snowRenderer;
+        [SerializeField] bool playOnEnable = true;
 
-        static Material _snowMat;
-        static Material _rainMat;
-        static Material _fineMat;
-        static Texture2D _clumpTex;
-        static Texture2D _streakTex;
-        static Texture2D _dotTex;
+        Camera _cam;
+        Transform _rainTf;
+        Transform _snowTf;
+        Material _rainMat;
+        Material _snowMat;
+        bool _playing = true;
+
+        static readonly int ColorId = Shader.PropertyToID("_Color");
 
         public void Play()
         {
-            if (snow != null && !snow.isPlaying) snow.Play(true);
-            if (rain != null && !rain.isPlaying) rain.Play(true);
-            if (fineSnow != null && !fineSnow.isPlaying) fineSnow.Play(true);
+            _playing = true;
+            SetVisible(true);
+        }
+
+        public void Stop()
+        {
+            _playing = false;
+            SetVisible(false);
         }
 
         public static AtmosphereFx CreateDefault(Transform parent)
         {
-            // 重建时清掉缓存，避免沿用坏材质/贴图
-            _snowMat = null;
-            _rainMat = null;
-            _fineMat = null;
-            _clumpTex = null;
-            _streakTex = null;
-            _dotTex = null;
-
             if (parent != null)
             {
                 var old = parent.GetComponentInChildren<AtmosphereFx>(true);
@@ -57,377 +56,157 @@ namespace CandyCrush.Vfx
             if (ignore >= 0) root.layer = ignore;
 
             var fx = root.AddComponent<AtmosphereFx>();
-            fx.rain = BuildRain(root.transform, ignore);
-            fx.snow = BuildSnowFluff(root.transform, ignore);
-            fx.fineSnow = BuildFineSnow(root.transform, ignore);
+            fx.Build(ignore);
             fx.Play();
             return fx;
         }
 
-        // 竖屏 ortho≈8.2 → 世界约 9.2×16.4；体积略大于全屏，开场就能铺满
-        static readonly Vector3 ScreenVolume = new Vector3(11.5f, 17.5f, 0.15f);
-
-        static ParticleSystem BuildSnowFluff(Transform parent, int ignoreLayer)
+        void OnEnable()
         {
-            var go = new GameObject("SnowFluff");
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = Vector3.zero;
-            if (ignoreLayer >= 0) go.layer = ignoreLayer;
-
-            var ps = go.AddComponent<ParticleSystem>();
-            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-
-            var main = ps.main;
-            main.playOnAwake = false;
-            main.loop = true;
-            main.prewarm = true;
-            // 寿命够长：飘出屏幕再回收，不做透明度淡出
-            main.startLifetime = TwoConst(18f, 28f);
-            main.startSpeed = 0f;
-            main.startSize = TwoConst(0.22f, 0.52f);
-            main.startRotation = TwoConst(0f, Mathf.PI * 2f);
-            main.startColor = new ParticleSystem.MinMaxGradient(
-                new Color(1f, 1f, 1f, 0.75f),
-                new Color(1f, 1f, 1f, 1f));
-            main.maxParticles = 120;
-            main.simulationSpace = ParticleSystemSimulationSpace.World;
-            main.gravityModifier = 0f;
-            main.scalingMode = ParticleSystemScalingMode.Hierarchy;
-
-            var emission = ps.emission;
-            emission.rateOverTime = 14f;
-            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 55, 70) });
-
-            var shape = ps.shape;
-            shape.enabled = true;
-            shape.shapeType = ParticleSystemShapeType.Box;
-            shape.scale = ScreenVolume;
-
-            SetVelocity(ps, -0.2f, 0.3f, -0.95f, -0.3f);
-
-            var rot = ps.rotationOverLifetime;
-            rot.enabled = true;
-            rot.z = TwoConst(-30f * Mathf.Deg2Rad, 30f * Mathf.Deg2Rad);
-
-            var noise = ps.noise;
-            noise.enabled = true;
-            noise.strength = 0.16f;
-            noise.frequency = 0.28f;
-            noise.scrollSpeed = 0.1f;
-            noise.damping = true;
-            noise.octaveCount = 1;
-
-            var colorOver = ps.colorOverLifetime;
-            colorOver.enabled = false;
-
-            var sizeOver = ps.sizeOverLifetime;
-            sizeOver.enabled = true;
-            sizeOver.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 0.85f, 1f, 1.05f));
-
-            DisableSheet(ps);
-            ApplyRenderer(go, SnowSortingOrder, GetSnowMaterial(), ParticleSystemRenderMode.Billboard);
-            return ps;
+            if (playOnEnable) Play();
         }
 
-        static ParticleSystem BuildFineSnow(Transform parent, int ignoreLayer)
+        void LateUpdate()
         {
-            var go = new GameObject("SnowFine");
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = Vector3.zero;
-            if (ignoreLayer >= 0) go.layer = ignoreLayer;
-
-            var ps = go.AddComponent<ParticleSystem>();
-            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-
-            var main = ps.main;
-            main.playOnAwake = false;
-            main.loop = true;
-            main.prewarm = true;
-            main.startLifetime = TwoConst(14f, 22f);
-            main.startSpeed = 0f;
-            main.startSize = TwoConst(0.04f, 0.11f);
-            main.startColor = new ParticleSystem.MinMaxGradient(
-                new Color(1f, 1f, 1f, 0.5f),
-                new Color(1f, 1f, 1f, 0.95f));
-            main.maxParticles = 200;
-            main.simulationSpace = ParticleSystemSimulationSpace.World;
-
-            var emission = ps.emission;
-            emission.rateOverTime = 28f;
-            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 80, 110) });
-
-            var shape = ps.shape;
-            shape.enabled = true;
-            shape.shapeType = ParticleSystemShapeType.Box;
-            shape.scale = ScreenVolume;
-
-            SetVelocity(ps, -0.25f, 0.25f, -1.35f, -0.45f);
-
-            var colorOver = ps.colorOverLifetime;
-            colorOver.enabled = false;
-
-            DisableSheet(ps);
-            ApplyRenderer(go, SnowSortingOrder - 1, GetFineMaterial(), ParticleSystemRenderMode.Billboard);
-            return ps;
+            if (!_playing) return;
+            FitToCamera();
         }
 
-        static ParticleSystem BuildRain(Transform parent, int ignoreLayer)
+        void Build(int ignoreLayer)
         {
-            var go = new GameObject("RainStreaks");
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = Vector3.zero;
-            go.transform.localRotation = Quaternion.identity;
-            if (ignoreLayer >= 0) go.layer = ignoreLayer;
-
-            var ps = go.AddComponent<ParticleSystem>();
-            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-
-            var main = ps.main;
-            main.playOnAwake = false;
-            main.loop = true;
-            main.prewarm = true;
-            main.startLifetime = TwoConst(1.4f, 2.2f);
-            main.startSpeed = 0f;
-            main.startSize = TwoConst(0.035f, 0.06f);
-            main.startColor = new ParticleSystem.MinMaxGradient(
-                new Color(0.85f, 0.92f, 1f, 0.5f),
-                new Color(1f, 1f, 1f, 0.9f));
-            main.maxParticles = 220;
-            main.simulationSpace = ParticleSystemSimulationSpace.World;
-            main.gravityModifier = 0f;
-            main.startRotation = 0f;
-
-            var emission = ps.emission;
-            emission.rateOverTime = 55f;
-            emission.SetBursts(new[] { new ParticleSystem.Burst(0f, 40, 60) });
-
-            var shape = ps.shape;
-            shape.enabled = true;
-            shape.shapeType = ParticleSystemShapeType.Box;
-            shape.scale = ScreenVolume;
-
-            // 左下，明显放慢
-            SetVelocity(ps, -2.8f, -1.6f, -5.5f, -3.2f);
-
-            var colorOver = ps.colorOverLifetime;
-            colorOver.enabled = true;
-            colorOver.color = FadeGradient(0.04f, 0.7f);
-
-            DisableSheet(ps);
-
-            var renderer = go.GetComponent<ParticleSystemRenderer>();
-            renderer.renderMode = ParticleSystemRenderMode.Stretch;
-            renderer.lengthScale = 3.2f;
-            renderer.velocityScale = 0.12f;
-            renderer.cameraVelocityScale = 0f;
-            renderer.sortingOrder = RainSortingOrder;
-            var rainMat = GetRainMaterial();
-            renderer.sharedMaterial = rainMat;
-            renderer.material = rainMat;
-            return ps;
-        }
-
-        static void ApplyRenderer(GameObject go, int sortingOrder, Material mat, ParticleSystemRenderMode mode)
-        {
-            var renderer = go.GetComponent<ParticleSystemRenderer>();
-            renderer.renderMode = mode;
-            renderer.alignment = ParticleSystemRenderSpace.View;
-            renderer.sortingOrder = sortingOrder;
-            renderer.sharedMaterial = mat;
-            // 强制实例材质，避免被 Default-Particle 白方块顶掉
-            renderer.material = mat;
-        }
-
-        static void SetVelocity(ParticleSystem ps, float x0, float x1, float y0, float y1)
-        {
-            var vel = ps.velocityOverLifetime;
-            vel.enabled = true;
-            vel.space = ParticleSystemSimulationSpace.World;
-            vel.x = TwoConst(x0, x1);
-            vel.y = TwoConst(y0, y1);
-            vel.z = TwoConst(0f, 0f);
-        }
-
-        static ParticleSystem.MinMaxCurve TwoConst(float a, float b) =>
-            new ParticleSystem.MinMaxCurve(a, b);
-
-        static ParticleSystem.MinMaxGradient FadeGradient(float inEnd, float outStart)
-        {
-            var grad = new Gradient();
-            grad.SetKeys(
-                new[]
-                {
-                    new GradientColorKey(Color.white, 0f),
-                    new GradientColorKey(Color.white, outStart),
-                    new GradientColorKey(Color.white, 1f)
-                },
-                new[]
-                {
-                    new GradientAlphaKey(0f, 0f),
-                    new GradientAlphaKey(1f, inEnd),
-                    new GradientAlphaKey(0.9f, outStart),
-                    new GradientAlphaKey(0.35f, Mathf.Lerp(outStart, 1f, 0.55f)),
-                    new GradientAlphaKey(0f, 1f)
-                });
-            return new ParticleSystem.MinMaxGradient(grad);
-        }
-
-        static void DisableSheet(ParticleSystem ps)
-        {
-            var sheet = ps.textureSheetAnimation;
-            sheet.enabled = false;
-        }
-
-        static Material GetSnowMaterial()
-        {
-            if (_snowMat != null) return _snowMat;
-            // Alpha Blended 才能让 Color over Lifetime 的透明淡出生效（Additive 几乎不吃 alpha）
-            _snowMat = MakeParticleMat("AtmSnowFluffMat", GetClumpTexture(), additive: false);
-            return _snowMat;
-        }
-
-        static Material GetFineMaterial()
-        {
-            if (_fineMat != null) return _fineMat;
-            _fineMat = MakeParticleMat("AtmSnowFineMat", GetDotTexture(), additive: false);
-            return _fineMat;
-        }
-
-        static Material GetRainMaterial()
-        {
-            if (_rainMat != null) return _rainMat;
-            // 雨丝用 Alpha 混合更清晰，避免 Additive 在暗景里发糊
-            _rainMat = MakeParticleMat("AtmRainMat", GetStreakTexture(), additive: false);
-            return _rainMat;
-        }
-
-        static Material MakeParticleMat(string name, Texture2D tex, bool additive)
-        {
-            Shader shader = null;
-            if (additive)
+            var rainShader = Shader.Find("CandyCrush/AtmosphereRain");
+            var snowShader = Shader.Find("CandyCrush/AtmosphereSnow");
+            if (rainShader == null || snowShader == null)
             {
-                shader = Shader.Find("Legacy Shaders/Particles/Additive")
-                         ?? Shader.Find("Particles/Additive")
-                         ?? Shader.Find("Mobile/Particles/Additive");
+                Debug.LogError("[AtmosphereFx] Missing shaders CandyCrush/AtmosphereRain or AtmosphereSnow.");
+                return;
             }
 
-            if (shader == null)
+            _rainMat = new Material(rainShader)
             {
-                shader = Shader.Find("Legacy Shaders/Particles/Alpha Blended")
-                         ?? Shader.Find("Particles/Standard Unlit")
-                         ?? Shader.Find("Sprites/Default")
-                         ?? Shader.Find("UI/Default");
-            }
-
-            var mat = new Material(shader) { name = name, hideFlags = HideFlags.HideAndDontSave };
-            mat.mainTexture = tex;
-            if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", tex);
-            if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", tex);
-            if (mat.HasProperty("_TintColor"))
-                mat.SetColor("_TintColor", new Color(1f, 1f, 1f, 0.55f));
-            if (mat.HasProperty("_Color"))
-                mat.SetColor("_Color", Color.white);
-            return mat;
-        }
-
-        static Texture2D GetClumpTexture()
-        {
-            if (_clumpTex != null) return _clumpTex;
-            const int size = 64;
-            _clumpTex = new Texture2D(size, size, TextureFormat.RGBA32, false)
+                name = "AtmRainMat",
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            _snowMat = new Material(snowShader)
             {
-                name = "AtmSoftClump",
-                wrapMode = TextureWrapMode.Clamp,
-                filterMode = FilterMode.Bilinear,
+                name = "AtmSnowMat",
                 hideFlags = HideFlags.HideAndDontSave
             };
 
-            // 多圆重叠软絮（Additive 下黑=透明，这里仍写好 alpha）
-            var centers = new[]
-            {
-                new Vector2(0.50f, 0.52f),
-                new Vector2(0.38f, 0.44f),
-                new Vector2(0.62f, 0.46f),
-                new Vector2(0.48f, 0.64f),
-                new Vector2(0.36f, 0.58f),
-                new Vector2(0.60f, 0.58f)
-            };
-            var radii = new[] { 0.42f, 0.28f, 0.27f, 0.24f, 0.22f, 0.22f };
+            rainRenderer = CreateLayer("RainLayer", ignoreLayer, _rainMat, RainSortingOrder, out _rainTf);
+            snowRenderer = CreateLayer("SnowLayer", ignoreLayer, _snowMat, SnowSortingOrder, out _snowTf);
 
-            for (int y = 0; y < size; y++)
-            for (int x = 0; x < size; x++)
-            {
-                float u = (x + 0.5f) / size;
-                float v = (y + 0.5f) / size;
-                float a = 0f;
-                for (int i = 0; i < centers.Length; i++)
-                {
-                    float dx = (u - centers[i].x) / radii[i];
-                    float dy = (v - centers[i].y) / radii[i];
-                    float d = Mathf.Sqrt(dx * dx + dy * dy);
-                    float s = Mathf.Clamp01(1f - d);
-                    a = Mathf.Max(a, s * s * s);
-                }
-                // Alpha Blended：白芯 + alpha 软边，才能被粒子颜色淡出吃到
-                _clumpTex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
-            }
-            _clumpTex.Apply(false, true);
-            return _clumpTex;
+            ApplyLook();
         }
 
-        static Texture2D GetDotTexture()
+        void ApplyLook()
         {
-            if (_dotTex != null) return _dotTex;
-            const int size = 32;
-            _dotTex = new Texture2D(size, size, TextureFormat.RGBA32, false)
-            {
-                name = "AtmFineDot",
-                wrapMode = TextureWrapMode.Clamp,
-                filterMode = FilterMode.Bilinear,
-                hideFlags = HideFlags.HideAndDontSave
-            };
-            float half = (size - 1) * 0.5f;
-            for (int y = 0; y < size; y++)
-            for (int x = 0; x < size; x++)
-            {
-                float dx = (x - half) / half;
-                float dy = (y - half) / half;
-                float d = Mathf.Sqrt(dx * dx + dy * dy);
-                float a = Mathf.Clamp01(1f - d);
-                a = a * a * a;
-                _dotTex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
-            }
-            _dotTex.Apply(false, true);
-            return _dotTex;
+            // 雨更疏、条更长；雪絮保持软团，略减细雪抢戏
+            if (_rainMat.HasProperty(ColorId))
+                _rainMat.SetColor(ColorId, new Color(0.88f, 0.94f, 1f, 0.85f));
+            _rainMat.SetFloat("_Density", 18f);
+            _rainMat.SetFloat("_Speed", 1.35f);
+            _rainMat.SetFloat("_Length", 0.5f);
+            _rainMat.SetFloat("_Thickness", 0.011f);
+            _rainMat.SetFloat("_Angle", -24f);
+            _rainMat.SetFloat("_Opacity", 0.48f);
+
+            if (_snowMat.HasProperty(ColorId))
+                _snowMat.SetColor(ColorId, new Color(1f, 1f, 1f, 1f));
+            _snowMat.SetFloat("_FluffDensity", 6.2f);
+            _snowMat.SetFloat("_FineDensity", 12f);
+            _snowMat.SetFloat("_FluffSpeed", 0.52f);
+            _snowMat.SetFloat("_FineSpeed", 0.85f);
+            _snowMat.SetFloat("_FluffSize", 0.12f);
+            _snowMat.SetFloat("_FineSize", 0.038f);
+            _snowMat.SetFloat("_Drift", 0.3f);
+            _snowMat.SetFloat("_FluffOpacity", 0.88f);
+            _snowMat.SetFloat("_FineOpacity", 0.55f);
         }
 
-        static Texture2D GetStreakTexture()
+        MeshRenderer CreateLayer(string name, int ignoreLayer, Material mat, int sortingOrder, out Transform tf)
         {
-            if (_streakTex != null) return _streakTex;
-            const int w = 16;
-            const int h = 48;
-            _streakTex = new Texture2D(w, h, TextureFormat.RGBA32, false)
+            var go = new GameObject(name);
+            go.transform.SetParent(transform, false);
+            if (ignoreLayer >= 0) go.layer = ignoreLayer;
+            tf = go.transform;
+
+            var mf = go.AddComponent<MeshFilter>();
+            mf.sharedMesh = QuadMesh();
+
+            var mr = go.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = mat;
+            mr.shadowCastingMode = ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+            mr.lightProbeUsage = LightProbeUsage.Off;
+            mr.reflectionProbeUsage = ReflectionProbeUsage.Off;
+            mr.allowOcclusionWhenDynamic = false;
+            mr.sortingLayerName = "Default";
+            mr.sortingOrder = sortingOrder;
+            return mr;
+        }
+
+        void FitToCamera()
+        {
+            if (_cam == null) _cam = Camera.main;
+            if (_cam == null || !_cam.orthographic) return;
+
+            float h = _cam.orthographicSize * 2f * 1.05f;
+            float w = h * _cam.aspect * 1.05f;
+            var center = _cam.transform.position;
+            if (_rainTf != null)
             {
-                name = "AtmRainStreak",
-                wrapMode = TextureWrapMode.Clamp,
-                filterMode = FilterMode.Bilinear,
+                _rainTf.position = new Vector3(center.x, center.y, 2f);
+                _rainTf.rotation = Quaternion.identity;
+                _rainTf.localScale = new Vector3(w, h, 1f);
+            }
+            if (_snowTf != null)
+            {
+                _snowTf.position = new Vector3(center.x, center.y, -1f);
+                _snowTf.rotation = Quaternion.identity;
+                _snowTf.localScale = new Vector3(w, h, 1f);
+            }
+        }
+
+        void SetVisible(bool on)
+        {
+            if (rainRenderer != null) rainRenderer.enabled = on;
+            if (snowRenderer != null) snowRenderer.enabled = on;
+        }
+
+        static Mesh _quad;
+
+        static Mesh QuadMesh()
+        {
+            if (_quad != null) return _quad;
+            _quad = new Mesh
+            {
+                name = "AtmosphereFullscreenQuad",
                 hideFlags = HideFlags.HideAndDontSave
             };
-            float cx = (w - 1) * 0.5f;
-            for (int y = 0; y < h; y++)
-            for (int x = 0; x < w; x++)
+            _quad.vertices = new[]
             {
-                float nx = Mathf.Abs(x - cx) / Mathf.Max(0.001f, cx);
-                float ny = y / (float)(h - 1);
-                float radial = Mathf.Clamp01(1f - nx);
-                radial = radial * radial;
-                float tip = Mathf.Sin(ny * Mathf.PI);
-                float a = radial * tip;
-                // Alpha Blended：白 + alpha
-                _streakTex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
-            }
-            _streakTex.Apply(false, true);
-            return _streakTex;
+                new Vector3(-0.5f, -0.5f, 0f),
+                new Vector3(0.5f, -0.5f, 0f),
+                new Vector3(-0.5f, 0.5f, 0f),
+                new Vector3(0.5f, 0.5f, 0f)
+            };
+            _quad.uv = new[]
+            {
+                new Vector2(0f, 0f),
+                new Vector2(1f, 0f),
+                new Vector2(0f, 1f),
+                new Vector2(1f, 1f)
+            };
+            _quad.triangles = new[] { 0, 2, 1, 2, 3, 1 };
+            _quad.RecalculateBounds();
+            return _quad;
+        }
+
+        void OnDestroy()
+        {
+            if (_rainMat != null) Destroy(_rainMat);
+            if (_snowMat != null) Destroy(_snowMat);
         }
     }
 }
