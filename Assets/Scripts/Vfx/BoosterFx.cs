@@ -137,6 +137,7 @@ namespace CandyCrush.Vfx
                         yield return _propeller.PlayCrossBurst(origin, cell);
                     break;
                 case TileType.Bomb:
+                    board.PlayBombBoardShake();
                     yield return _bomb.PlayFlash(origin, cell);
                     break;
                 case TileType.ColorBall:

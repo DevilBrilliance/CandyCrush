@@ -279,6 +279,8 @@ MonoBehaviour:
   clearShrinkScale: 0.1
   landShakeDuration: 0.3
   landShakeStrength: 0.1
+  bombBoardShakeDuration: 0.5
+  bombBoardShakeStrength: 0.25
 --- !u!4 &840395388
 Transform:
   m_ObjectHideFlags: 0

@@ -28,6 +28,10 @@ namespace CandyCrush.View
         [SerializeField] float landShakeDuration = 0.3f;
         [Tooltip("落地震动强度（相对基准缩放）")]
         [SerializeField] float landShakeStrength = 0.07f;
+        [Tooltip("炸弹整盘震动时长")]
+        [SerializeField] float bombBoardShakeDuration = 0.38f;
+        [Tooltip("炸弹整盘震动幅度（世界单位，约 0.1~0.2 格）")]
+        [SerializeField] float bombBoardShakeStrength = 0.14f;
 
         BoardModel _model;
         TileView[,] _views;
@@ -36,11 +40,49 @@ namespace CandyCrush.View
         Transform _cellBgRoot;
         SimplePool<TileView> _tilePool;
         Transform _tilePoolRoot;
+        Vector3 _boardRestLocalPos;
+        bool _boardRestCached;
+        Coroutine _boardShakeCo;
 
         public BoardModel Model => _model;
         public TileSpriteCatalog Catalog => catalog;
         public LevelConfig Config => levelConfig;
         public float CellSizeSafe() => cellSize > 0.01f ? cellSize : 0.95f;
+
+        /// <summary>炸弹等：整盘震动（BoardBg / Fill / Cells / Tiles 都在 BoardView 下，摇根节点即可）。</summary>
+        public void PlayBombBoardShake()
+        {
+            if (!isActiveAndEnabled) return;
+            if (_boardShakeCo != null) StopCoroutine(_boardShakeCo);
+            _boardShakeCo = StartCoroutine(BoardShakeRoutine(
+                bombBoardShakeDuration > 0.05f ? bombBoardShakeDuration : 0.38f,
+                Mathf.Max(0.02f, bombBoardShakeStrength) * CellSizeSafe()));
+        }
+
+        IEnumerator BoardShakeRoutine(float duration, float strength)
+        {
+            if (!_boardRestCached)
+            {
+                _boardRestLocalPos = transform.localPosition;
+                _boardRestCached = true;
+            }
+
+            var rest = _boardRestLocalPos;
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.deltaTime;
+                float damp = 1f - Mathf.Clamp01(t / duration);
+                damp *= damp;
+                float ox = (Random.value * 2f - 1f) * strength * damp;
+                float oy = (Random.value * 2f - 1f) * strength * damp;
+                transform.localPosition = rest + new Vector3(ox, oy, 0f);
+                yield return null;
+            }
+
+            transform.localPosition = rest;
+            _boardShakeCo = null;
+        }
 
         public void Initialize(LevelConfig config, TileSpriteCatalog sprites)
         {
