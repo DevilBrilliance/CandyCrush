@@ -4,14 +4,10 @@ Shader "CandyCrush/AtmosphereSnow"
     {
         _Color ("Color", Color) = (1, 1, 1, 1)
         _FluffDensity ("Fluff Density", Range(2, 20)) = 6.5
-        _FineDensity ("Fine Density", Range(4, 36)) = 15
         _FluffSpeed ("Fluff Speed", Range(0.05, 2)) = 0.55
-        _FineSpeed ("Fine Speed", Range(0.05, 2.5)) = 0.9
         _FluffSize ("Fluff Size", Range(0.04, 0.4)) = 0.13
-        _FineSize ("Fine Size", Range(0.01, 0.15)) = 0.045
         _Drift ("Horizontal Drift", Range(0, 1)) = 0.32
         _FluffOpacity ("Fluff Opacity", Range(0, 1)) = 0.9
-        _FineOpacity ("Fine Opacity", Range(0, 1)) = 0.7
     }
     SubShader
     {
@@ -49,14 +45,10 @@ Shader "CandyCrush/AtmosphereSnow"
 
             fixed4 _Color;
             float _FluffDensity;
-            float _FineDensity;
             float _FluffSpeed;
-            float _FineSpeed;
             float _FluffSize;
-            float _FineSize;
             float _Drift;
             float _FluffOpacity;
-            float _FineOpacity;
 
             float hash21(float2 p)
             {
@@ -89,11 +81,10 @@ Shader "CandyCrush/AtmosphereSnow"
                 float2 cell = floor(p);
                 float2 f = frac(p) - 0.5;
                 float2 rnd = hash22(cell + layer * 51.3);
-                // ~48% 格子有絮
                 if (rnd.x < 0.52) return 0.0;
 
                 float2 c = f - (rnd - 0.5) * 0.32;
-                float s = size * (0.8 + rnd.y * 0.55);
+                float s = max(0.08, size * (0.85 + rnd.y * 0.45));
                 float ang = (rnd.x - 0.5) * 1.6;
                 float ca = cos(ang), sa = sin(ang);
 
@@ -109,24 +100,6 @@ Shader "CandyCrush/AtmosphereSnow"
                 return a * (0.75 + rnd.y * 0.25);
             }
 
-            // 对齐旧粒子细雪圆点
-            float fineDot(float2 uv, float density, float speed, float size, float layer, float empty)
-            {
-                float2 p = uv * float2(density, density);
-                p.y += _Time.y * speed;
-                p.x += sin(p.y * 2.0 + layer) * _Drift * 0.12;
-                p.x += _Time.y * speed * _Drift * 0.1;
-
-                float2 cell = floor(p);
-                float2 f = frac(p) - 0.5;
-                float2 rnd = hash22(cell + layer * 31.7);
-                if (rnd.x < empty) return 0.0;
-
-                float2 offset = (rnd - 0.5) * 0.45;
-                float s = size * (0.7 + rnd.y * 0.6);
-                return softBall(f - offset, s) * (0.55 + rnd.y * 0.45);
-            }
-
             v2f vert(appdata v)
             {
                 v2f o;
@@ -137,17 +110,12 @@ Shader "CandyCrush/AtmosphereSnow"
 
             fixed4 frag(v2f i) : SV_Target
             {
+                // 只要软絮，不要细雪小杂点
                 float fluff = 0.0;
-                fluff += fluffClump(i.uv, _FluffDensity, _FluffSpeed, _FluffSize, 1.0);
-                fluff += fluffClump(i.uv + 0.17, _FluffDensity * 0.7, _FluffSpeed * 0.85, _FluffSize * 1.2, 2.0) * 0.88;
-                fluff += fluffClump(i.uv + 0.41, _FluffDensity * 1.05, _FluffSpeed * 1.08, _FluffSize * 0.75, 3.0) * 0.7;
+                fluff += fluffClump(i.uv, _FluffDensity, _FluffSpeed, max(_FluffSize, 0.08), 1.0);
+                fluff += fluffClump(i.uv + 0.17, _FluffDensity * 0.7, _FluffSpeed * 0.85, max(_FluffSize * 1.15, 0.09), 2.0) * 0.9;
 
-                float fine = 0.0;
-                fine += fineDot(i.uv, _FineDensity, _FineSpeed, _FineSize, 4.0, 0.38);
-                fine += fineDot(i.uv + 0.29, _FineDensity * 1.2, _FineSpeed * 1.15, _FineSize * 0.7, 5.0, 0.45);
-
-                float a = saturate(fluff * _FluffOpacity + fine * _FineOpacity) * _Color.a;
-                // Premultiplied-ish for One OneMinusSrcAlpha
+                float a = saturate(fluff * _FluffOpacity) * _Color.a;
                 float3 rgb = _Color.rgb * a;
                 return fixed4(rgb, a);
             }

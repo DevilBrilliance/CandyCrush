@@ -27,23 +27,30 @@ namespace CandyCrush.Core
     /// <summary>清格；行李箱进入清除集则收集。</summary>
     public static class ClearResolver
     {
+        static readonly HashSet<GridPos> _set = new HashSet<GridPos>();
+        static readonly HashSet<GridPos> _existing = new HashSet<GridPos>();
+        static readonly List<GridPos> _extra = new List<GridPos>(16);
+        static readonly int[] Dr = { -1, 1, 0, 0 };
+        static readonly int[] Dc = { 0, 0, -1, 1 };
+
         public static void Resolve(
             BoardModel board,
-            IEnumerable<GridPos> clearCells,
+            List<GridPos> clearCells,
             ObjectiveTracker objective,
-            out List<GridPos> cleared,
-            out List<TileType> clearedTypes,
-            out List<GridPos> collectedSuitcases)
+            List<GridPos> cleared,
+            List<TileType> clearedTypes,
+            List<GridPos> collectedSuitcases)
         {
-            cleared = new List<GridPos>();
-            clearedTypes = new List<TileType>();
-            collectedSuitcases = new List<GridPos>();
-            var set = new HashSet<GridPos>();
+            cleared.Clear();
+            clearedTypes.Clear();
+            collectedSuitcases.Clear();
+            _set.Clear();
 
-            foreach (var p in clearCells)
+            for (int i = 0; i < clearCells.Count; i++)
             {
+                var p = clearCells[i];
                 if (!board.InBounds(p.Row, p.Col)) continue;
-                if (!set.Add(p)) continue;
+                if (!_set.Add(p)) continue;
 
                 var t = board.Get(p.Row, p.Col);
                 if (t == TileType.Empty) continue;
@@ -64,27 +71,30 @@ namespace CandyCrush.Core
         /// <summary>匹配消除时，把贴邻匹配格的行李箱一并波及。</summary>
         public static void ExpandWithAdjacentSuitcases(BoardModel board, List<GridPos> cells)
         {
-            var extra = new List<GridPos>();
-            var existing = new HashSet<GridPos>(cells);
-            int[] dr = { -1, 1, 0, 0 };
-            int[] dc = { 0, 0, -1, 1 };
+            _extra.Clear();
+            _existing.Clear();
+            for (int i = 0; i < cells.Count; i++)
+                _existing.Add(cells[i]);
 
-            foreach (var p in cells)
+            for (int ci = 0; ci < cells.Count; ci++)
             {
+                var p = cells[ci];
                 for (int i = 0; i < 4; i++)
                 {
-                    int nr = p.Row + dr[i], nc = p.Col + dc[i];
+                    int nr = p.Row + Dr[i], nc = p.Col + Dc[i];
                     if (!board.InBounds(nr, nc)) continue;
                     var np = new GridPos(nr, nc);
-                    if (existing.Contains(np)) continue;
+                    if (_existing.Contains(np)) continue;
                     if (board.Get(nr, nc) == TileType.Suitcase)
                     {
-                        extra.Add(np);
-                        existing.Add(np);
+                        _extra.Add(np);
+                        _existing.Add(np);
                     }
                 }
             }
-            cells.AddRange(extra);
+
+            for (int i = 0; i < _extra.Count; i++)
+                cells.Add(_extra[i]);
         }
     }
 }

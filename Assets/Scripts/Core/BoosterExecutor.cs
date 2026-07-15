@@ -19,11 +19,11 @@ namespace CandyCrush.Core
     /// <summary>道具效果：火箭清行/列、炸弹 5×5、螺旋桨十字清格后追箱、彩球同色。</summary>
     public static class BoosterExecutor
     {
-        public static List<GridPos> GetClearCells(BoardModel board, int row, int col, TileType booster, TileType partnerColor,
-            GridPos? propellerTarget = null)
+        public static void GetClearCells(BoardModel board, int row, int col, TileType booster, TileType partnerColor,
+            List<GridPos> cells, GridPos? propellerTarget = null)
         {
-            var cells = new List<GridPos>();
-            if (!board.InBounds(row, col)) return cells;
+            cells.Clear();
+            if (!board.InBounds(row, col)) return;
 
             switch (booster)
             {
@@ -36,19 +36,16 @@ namespace CandyCrush.Core
                         cells.Add(new GridPos(r, col));
                     break;
                 case TileType.Bomb:
-                    // 以炸弹为中心 5×5
                     for (int r = row - 2; r <= row + 2; r++)
                     for (int c = col - 2; c <= col + 2; c++)
                         if (board.InBounds(r, c)) cells.Add(new GridPos(r, c));
                     break;
                 case TileType.Propeller:
-                    // 十字花：自身 + 上下左右（越界跳过）
                     AddUnique(cells, new GridPos(row, col));
                     TryAdd(board, cells, row - 1, col);
                     TryAdd(board, cells, row + 1, col);
                     TryAdd(board, cells, row, col - 1);
                     TryAdd(board, cells, row, col + 1);
-                    // 再追箱（可由外部指定，避免多螺旋桨抢同一目标）
                     var target = propellerTarget.HasValue
                         ? propellerTarget
                         : FindPropellerTarget(board, row, col);
@@ -67,7 +64,13 @@ namespace CandyCrush.Core
                     }
                     break;
             }
+        }
 
+        public static List<GridPos> GetClearCells(BoardModel board, int row, int col, TileType booster, TileType partnerColor,
+            GridPos? propellerTarget = null)
+        {
+            var cells = new List<GridPos>(16);
+            GetClearCells(board, row, col, booster, partnerColor, cells, propellerTarget);
             return cells;
         }
 

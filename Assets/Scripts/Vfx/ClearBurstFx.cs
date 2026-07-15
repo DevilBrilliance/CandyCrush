@@ -292,8 +292,14 @@ namespace CandyCrush.Vfx
             var sizeOver = ps.sizeOverLifetime;
             sizeOver.enabled = false;
 
+            // 仅在首次 / hold 变化时写 Gradient，避免每格消都分配
             ApplyFadeOverLifetime(ps);
         }
+
+        float _cachedHold = -1f;
+        Gradient _fadeGradient;
+        GradientColorKey[] _fadeColors;
+        GradientAlphaKey[] _fadeAlphas;
 
         void ApplyFadeOverLifetime(ParticleSystem ps)
         {
@@ -303,16 +309,22 @@ namespace CandyCrush.Vfx
             float hold = Duration > 0.0001f ? FadeDelay / Duration : 0f;
             hold = Mathf.Clamp01(hold);
 
-            var grad = new Gradient();
-            grad.SetKeys(
-                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
-                new[]
+            if (_fadeGradient == null || !Mathf.Approximately(_cachedHold, hold))
+            {
+                _cachedHold = hold;
+                if (_fadeGradient == null)
                 {
-                    new GradientAlphaKey(1f, 0f),
-                    new GradientAlphaKey(1f, hold),
-                    new GradientAlphaKey(0f, 1f)
-                });
-            colorOver.color = new ParticleSystem.MinMaxGradient(grad);
+                    _fadeGradient = new Gradient();
+                    _fadeColors = new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) };
+                    _fadeAlphas = new GradientAlphaKey[3];
+                }
+                _fadeAlphas[0] = new GradientAlphaKey(1f, 0f);
+                _fadeAlphas[1] = new GradientAlphaKey(1f, hold);
+                _fadeAlphas[2] = new GradientAlphaKey(0f, 1f);
+                _fadeGradient.SetKeys(_fadeColors, _fadeAlphas);
+            }
+
+            colorOver.color = new ParticleSystem.MinMaxGradient(_fadeGradient);
         }
 
         static Material SharedMat()

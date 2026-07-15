@@ -85,8 +85,9 @@ Shader "CandyCrush/AtmosphereRain"
                 float head = smoothstep(0.0, 0.04, along);
                 float body = trail * trail * head;
 
-                // 宽度随尾巴收细（对齐 streak 贴图 tip）
-                float tw = _Thickness * (0.45 + 0.7 * trail) * (0.7 + h * 0.45);
+                // 尾巴末端不再收成针尖杂点
+                if (trail < 0.12) return 0.0;
+                float tw = max(0.004, _Thickness * (0.55 + 0.55 * trail) * (0.75 + h * 0.4));
                 float cx = abs(fx - (0.28 + h * 0.44));
                 float thin = smoothstep(tw, 0.0, cx);
 

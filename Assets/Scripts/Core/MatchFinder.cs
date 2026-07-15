@@ -6,11 +6,17 @@ namespace CandyCrush.Core
     /// <summary>横/竖扫描匹配；识别 4 连、5 连、L/T，输出 MatchGroup + 道具生成信息。</summary>
     public static class MatchFinder
     {
+        static bool[,] _visited;
+        static int _visitedRows;
+        static int _visitedCols;
+        static readonly List<MatchGroup> _groups = new List<MatchGroup>(16);
+        static readonly Stack<MatchGroup> _pool = new Stack<MatchGroup>(16);
+
         public static List<MatchGroup> FindMatches(BoardModel board, bool enableColorBall = false)
         {
             int rows = board.Rows, cols = board.Cols;
-            var visited = new bool[rows, cols];
-            var groups = new List<MatchGroup>();
+            EnsureVisited(rows, cols);
+            RecycleGroups();
 
             // 横向
             for (int r = 0; r < rows; r++)
@@ -25,14 +31,14 @@ namespace CandyCrush.Core
                     int len = c - start;
                     if (len >= 3)
                     {
-                        var g = new MatchGroup();
+                        var g = RentGroup();
                         for (int i = start; i < c; i++)
                         {
                             g.Cells.Add(new GridPos(r, i));
-                            visited[r, i] = true;
+                            _visited[r, i] = true;
                         }
                         AnnotateBooster(g, len, true, enableColorBall);
-                        groups.Add(g);
+                        _groups.Add(g);
                     }
                 }
             }
@@ -50,19 +56,18 @@ namespace CandyCrush.Core
                     int len = r - start;
                     if (len >= 3)
                     {
-                        // 合并已有横向重叠组
                         MatchGroup target = null;
                         for (int i = start; i < r; i++)
                         {
-                            if (!visited[i, c]) continue;
-                            target = FindGroupContaining(groups, i, c);
+                            if (!_visited[i, c]) continue;
+                            target = FindGroupContaining(_groups, i, c);
                             if (target != null) break;
                         }
 
                         if (target == null)
                         {
-                            target = new MatchGroup();
-                            groups.Add(target);
+                            target = RentGroup();
+                            _groups.Add(target);
                         }
 
                         for (int i = start; i < r; i++)
@@ -70,10 +75,9 @@ namespace CandyCrush.Core
                             var pos = new GridPos(i, c);
                             if (!Contains(target.Cells, pos))
                                 target.Cells.Add(pos);
-                            visited[i, c] = true;
+                            _visited[i, c] = true;
                         }
 
-                        // L/T：同时有横竖
                         if (target.Cells.Count >= 5 && target.SpawnBooster == BoosterType.None)
                         {
                             bool hasRowSpan = HasMultiCol(target);
@@ -96,7 +100,6 @@ namespace CandyCrush.Core
                         }
                         else if (len >= 4 && target.SpawnBooster == BoosterType.None)
                         {
-                            // len>=5 且未开彩球时也走火箭
                             target.SpawnBooster = enableColorBall && len >= 5
                                 ? BoosterType.ColorBall
                                 : BoosterType.RocketV;
@@ -106,17 +109,52 @@ namespace CandyCrush.Core
                 }
             }
 
-            // 2x2 方块 → 螺旋桨
-            FindSquares(board, groups);
+            FindSquares(board, _groups);
 
-            // 确保每个 group 有 SpawnAt
-            foreach (var g in groups)
+            for (int gi = 0; gi < _groups.Count; gi++)
             {
-                if (g.SpawnBooster != BoosterType.None && (g.SpawnAt.Row == 0 && g.SpawnAt.Col == 0 && !Contains(g.Cells, g.SpawnAt)))
+                var g = _groups[gi];
+                if (g.SpawnBooster != BoosterType.None &&
+                    (g.SpawnAt.Row == 0 && g.SpawnAt.Col == 0 && !Contains(g.Cells, g.SpawnAt)))
                     g.SpawnAt = g.Cells[g.Cells.Count / 2];
             }
 
-            return groups;
+            return _groups;
+        }
+
+        static void EnsureVisited(int rows, int cols)
+        {
+            if (_visited == null || _visitedRows != rows || _visitedCols != cols)
+            {
+                _visited = new bool[rows, cols];
+                _visitedRows = rows;
+                _visitedCols = cols;
+                return;
+            }
+
+            for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                _visited[r, c] = false;
+        }
+
+        static void RecycleGroups()
+        {
+            for (int i = 0; i < _groups.Count; i++)
+            {
+                var g = _groups[i];
+                g.Cells.Clear();
+                g.SpawnBooster = BoosterType.None;
+                g.SpawnAt = default;
+                _pool.Push(g);
+            }
+            _groups.Clear();
+        }
+
+        static MatchGroup RentGroup()
+        {
+            if (_pool.Count > 0)
+                return _pool.Pop();
+            return new MatchGroup();
         }
 
         static void AnnotateBooster(MatchGroup g, int len, bool horizontal, bool enableColorBall)
@@ -143,18 +181,15 @@ namespace CandyCrush.Core
                 if (board.Get(r, c + 1) != t || board.Get(r + 1, c) != t || board.Get(r + 1, c + 1) != t)
                     continue;
 
-                // 若四格都已在某组中则跳过；否则新建螺旋桨组
                 bool allIn = true;
                 for (int dr = 0; dr < 2 && allIn; dr++)
                 for (int dc = 0; dc < 2 && allIn; dc++)
                     if (FindGroupContaining(groups, r + dr, c + dc) == null) allIn = false;
                 if (allIn) continue;
 
-                var g = new MatchGroup
-                {
-                    SpawnBooster = BoosterType.Propeller,
-                    SpawnAt = new GridPos(r, c)
-                };
+                var g = RentGroup();
+                g.SpawnBooster = BoosterType.Propeller;
+                g.SpawnAt = new GridPos(r, c);
                 g.Cells.Add(new GridPos(r, c));
                 g.Cells.Add(new GridPos(r, c + 1));
                 g.Cells.Add(new GridPos(r + 1, c));
@@ -165,9 +200,12 @@ namespace CandyCrush.Core
 
         static MatchGroup FindGroupContaining(List<MatchGroup> groups, int r, int c)
         {
-            var p = new GridPos(r, c);
             for (int i = 0; i < groups.Count; i++)
-                if (Contains(groups[i].Cells, p)) return groups[i];
+            {
+                var cells = groups[i].Cells;
+                for (int j = 0; j < cells.Count; j++)
+                    if (cells[j].Row == r && cells[j].Col == c) return groups[i];
+            }
             return null;
         }
 
@@ -181,14 +219,24 @@ namespace CandyCrush.Core
         static bool HasMultiRow(MatchGroup g)
         {
             int min = int.MaxValue, max = int.MinValue;
-            foreach (var p in g.Cells) { if (p.Row < min) min = p.Row; if (p.Row > max) max = p.Row; }
+            for (int i = 0; i < g.Cells.Count; i++)
+            {
+                int row = g.Cells[i].Row;
+                if (row < min) min = row;
+                if (row > max) max = row;
+            }
             return max > min;
         }
 
         static bool HasMultiCol(MatchGroup g)
         {
             int min = int.MaxValue, max = int.MinValue;
-            foreach (var p in g.Cells) { if (p.Col < min) min = p.Col; if (p.Col > max) max = p.Col; }
+            for (int i = 0; i < g.Cells.Count; i++)
+            {
+                int col = g.Cells[i].Col;
+                if (col < min) min = col;
+                if (col > max) max = col;
+            }
             return max > min;
         }
     }

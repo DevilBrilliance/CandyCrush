@@ -114,14 +114,10 @@ namespace CandyCrush.Vfx
             if (_snowMat.HasProperty(ColorId))
                 _snowMat.SetColor(ColorId, new Color(1f, 1f, 1f, 1f));
             _snowMat.SetFloat("_FluffDensity", 6.2f);
-            _snowMat.SetFloat("_FineDensity", 12f);
             _snowMat.SetFloat("_FluffSpeed", 0.52f);
-            _snowMat.SetFloat("_FineSpeed", 0.85f);
             _snowMat.SetFloat("_FluffSize", 0.12f);
-            _snowMat.SetFloat("_FineSize", 0.038f);
             _snowMat.SetFloat("_Drift", 0.3f);
             _snowMat.SetFloat("_FluffOpacity", 0.88f);
-            _snowMat.SetFloat("_FineOpacity", 0.55f);
         }
 
         MeshRenderer CreateLayer(string name, int ignoreLayer, Material mat, int sortingOrder, out Transform tf)
